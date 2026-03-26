@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/api/v1/chat": {
+    "/api/v2/sessions": {
         parameters: {
             query?: never;
             header?: never;
@@ -13,15 +13,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Ask a question with session memory */
-        post: operations["postChat"];
+        /** Create an agent session */
+        post: operations["createSession"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/chat/stream": {
+    "/api/v2/runs/chat": {
         parameters: {
             query?: never;
             header?: never;
@@ -30,15 +30,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Stream a chat response through SSE */
-        post: operations["postChatStream"];
+        /** Run a chat agent task */
+        post: operations["runChat"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/ops/diagnose": {
+    "/api/v2/runs/chat/stream": {
         parameters: {
             query?: never;
             header?: never;
@@ -47,15 +47,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Diagnose an OnCall alert and return an execution trail */
-        post: operations["postDiagnose"];
+        /** Stream a chat agent task */
+        post: operations["runChatStream"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/knowledge/files": {
+    "/api/v2/runs/ops": {
         parameters: {
             query?: never;
             header?: never;
@@ -64,15 +64,49 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Upload a knowledge file */
-        post: operations["postKnowledgeFile"];
+        /** Run an operations supervisor workflow */
+        post: operations["runOps"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/knowledge/index": {
+    "/api/v2/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a run with event summary */
+        get: operations["getRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/runs/{runId}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List stored run events */
+        get: operations["listRunEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/runs/{runId}/resume": {
         parameters: {
             query?: never;
             header?: never;
@@ -81,23 +115,57 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Index uploaded or seeded knowledge documents */
-        post: operations["postKnowledgeIndex"];
+        /** Resume an interrupted run */
+        post: operations["resumeRun"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/runs/{runId}": {
+    "/api/v2/knowledge/documents": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Query a stored run detail */
-        get: operations["getRunDetail"];
+        get?: never;
+        put?: never;
+        /** Upload a knowledge document */
+        post: operations["uploadKnowledgeDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/knowledge/index-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create an asynchronous knowledge indexing job */
+        post: operations["createKnowledgeIndexJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/tools/mcp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List MCP tools discovered from the MCP server */
+        get: operations["listMCPTools"];
         put?: never;
         post?: never;
         delete?: never;
@@ -110,108 +178,152 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        ApiResponse: {
-            /** @example OK */
-            message: string;
+        CreateSessionRequest: {
+            title?: string;
+            /** @example general */
+            mode?: string;
         };
-        Reference: {
-            documentId: string;
-            title: string;
-            excerpt: string;
-            /** Format: float */
-            score: number;
-        };
-        ToolCallRecord: {
-            name: string;
-            input: string;
-            output: string;
-            /** @enum {string} */
-            status: "success" | "failed";
-        };
-        ChatRequest: {
-            /** @example session-001 */
+        ChatRunRequest: {
             sessionId: string;
-            /** @example 支付服务 CPU 告警应该怎么排查？ */
-            question: string;
-            /** @default 3 */
+            query: string;
+            /** @default 4 */
             topK: number;
         };
-        ChatResponseData: {
+        OpsRunRequest: {
             sessionId: string;
-            answer: string;
-            references: components["schemas"]["Reference"][];
-            suggestions: string[];
-        };
-        ChatResponse: components["schemas"]["ApiResponse"] & {
-            data: components["schemas"]["ChatResponseData"];
-        };
-        DiagnoseRequest: {
-            /** @example payment-service cpu usage high */
             alertTitle: string;
-            /** @example payment-service */
             serviceName: string;
             /** @enum {string} */
             severity: "critical" | "warning" | "info";
-            /** @example 支付服务 CPU 连续 5 分钟高于 90%，错误率上升。 */
             summary: string;
-            /** @default ops-session-001 */
-            sessionId: string;
         };
-        DiagnoseResponseData: {
-            runId: string;
-            result: string;
-            detail: string[];
-            references: components["schemas"]["Reference"][];
-            toolCalls: components["schemas"]["ToolCallRecord"][];
+        ResumeRunRequest: {
+            interruptId?: string;
+            approved?: boolean;
+            note?: string;
         };
-        DiagnoseResponse: components["schemas"]["ApiResponse"] & {
-            data: components["schemas"]["DiagnoseResponseData"];
-        };
-        UploadFileResponseData: {
-            documentId: string;
-            fileName: string;
-            filePath: string;
-            fileSize: number;
-            /** @enum {string} */
-            status: "uploaded" | "indexed";
-        };
-        UploadFileResponse: components["schemas"]["ApiResponse"] & {
-            data: components["schemas"]["UploadFileResponseData"];
-        };
-        KnowledgeIndexRequest: {
+        CreateKnowledgeIndexJobRequest: {
             documentIds?: string[];
-            /** @default 220 */
+            /** @default 500 */
             chunkSize: number;
-            /** @default 40 */
+            /** @default 80 */
             overlap: number;
-            /** @default 3 */
+            /** @default 4 */
             topK: number;
         };
-        KnowledgeIndexResponseData: {
-            indexedDocuments: number;
-            indexedChunks: number;
-            chunkSize: number;
-            overlap: number;
-            topK: number;
+        Session: {
+            id: string;
+            title: string;
+            mode: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
-        KnowledgeIndexResponse: components["schemas"]["ApiResponse"] & {
-            data: components["schemas"]["KnowledgeIndexResponseData"];
+        InterruptContext: {
+            id: string;
+            address: string;
+            /** @description Interrupt metadata provided by the paused component */
+            info?: unknown;
+            isRootCause: boolean;
         };
-        RunDetailData: {
+        InterruptData: {
+            contexts?: components["schemas"]["InterruptContext"][];
+        };
+        RunEvent: {
+            id: string;
             runId: string;
-            /** @enum {string} */
-            runType: "chat" | "ops";
-            /** @enum {string} */
-            status: "completed" | "failed";
-            summary: string;
-            detail: string[];
-            references: components["schemas"]["Reference"][];
-            toolCalls: components["schemas"]["ToolCallRecord"][];
+            sequence: number;
+            /** @example tool_call */
+            eventType: string;
+            agentName?: string;
+            role?: string;
+            toolName?: string;
+            content?: string;
+            /** @description Event-specific JSON payload */
+            payload?: unknown;
             /** Format: date-time */
             createdAt: string;
         };
-        RunDetailResponse: components["schemas"]["ApiResponse"] & {
-            data: components["schemas"]["RunDetailData"];
+        Run: {
+            id: string;
+            sessionId: string;
+            /** @enum {string} */
+            runType: "chat" | "ops";
+            /** @enum {string} */
+            status: "running" | "completed" | "interrupted" | "failed";
+            summary: string;
+            errorMessage?: string;
+            checkpointId: string;
+            interrupt?: components["schemas"]["InterruptData"];
+            events?: components["schemas"]["RunEvent"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            completedAt?: string;
+        };
+        KnowledgeDocument: {
+            id: string;
+            fileName: string;
+            title: string;
+            contentType: string;
+            filePath: string;
+            status: string;
+            sourceType: string;
+            content?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        KnowledgeIndexJob: {
+            id: string;
+            documentId?: string;
+            /** @enum {string} */
+            status: "queued" | "running" | "completed" | "failed";
+            collectionName: string;
+            chunkSize: number;
+            overlap: number;
+            topK: number;
+            indexedChunks: number;
+            errorMessage?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            completedAt?: string;
+        };
+        MCPToolDescriptor: {
+            name: string;
+            description?: string;
+            schemaJson?: string;
+        };
+        SessionResponse: {
+            message: string;
+            data: components["schemas"]["Session"];
+        };
+        RunResponse: {
+            message: string;
+            data: components["schemas"]["Run"];
+        };
+        RunEventListResponse: {
+            message: string;
+            data: components["schemas"]["RunEvent"][];
+        };
+        KnowledgeDocumentResponse: {
+            message: string;
+            data: components["schemas"]["KnowledgeDocument"];
+        };
+        KnowledgeIndexJobResponse: {
+            message: string;
+            data: components["schemas"]["KnowledgeIndexJob"];
+        };
+        MCPToolListResponse: {
+            message: string;
+            data: components["schemas"]["MCPToolDescriptor"][];
         };
     };
     responses: never;
@@ -222,7 +334,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    postChat: {
+    createSession: {
         parameters: {
             query?: never;
             header?: never;
@@ -231,22 +343,22 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ChatRequest"];
+                "application/json": components["schemas"]["CreateSessionRequest"];
             };
         };
         responses: {
-            /** @description Chat response */
+            /** @description Session created */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChatResponse"];
+                    "application/json": components["schemas"]["SessionResponse"];
                 };
             };
         };
     };
-    postChatStream: {
+    runChat: {
         parameters: {
             query?: never;
             header?: never;
@@ -255,11 +367,35 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ChatRequest"];
+                "application/json": components["schemas"]["ChatRunRequest"];
             };
         };
         responses: {
-            /** @description SSE stream */
+            /** @description Chat run result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunResponse"];
+                };
+            };
+        };
+    };
+    runChatStream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatRunRequest"];
+            };
+        };
+        responses: {
+            /** @description SSE stream of run events */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -270,7 +406,7 @@ export interface operations {
             };
         };
     };
-    postDiagnose: {
+    runOps: {
         parameters: {
             query?: never;
             header?: never;
@@ -279,22 +415,92 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DiagnoseRequest"];
+                "application/json": components["schemas"]["OpsRunRequest"];
             };
         };
         responses: {
-            /** @description Diagnosis report */
+            /** @description Ops run result */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DiagnoseResponse"];
+                    "application/json": components["schemas"]["RunResponse"];
                 };
             };
         };
     };
-    postKnowledgeFile: {
+    getRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Run detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunResponse"];
+                };
+            };
+        };
+    };
+    listRunEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Run events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunEventListResponse"];
+                };
+            };
+        };
+    };
+    resumeRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumeRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Resumed run result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunResponse"];
+                };
+            };
+        };
+    };
+    uploadKnowledgeDocument: {
         parameters: {
             query?: never;
             header?: never;
@@ -310,18 +516,18 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Upload result */
+            /** @description Uploaded knowledge document */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UploadFileResponse"];
+                    "application/json": components["schemas"]["KnowledgeDocumentResponse"];
                 };
             };
         };
     };
-    postKnowledgeIndex: {
+    createKnowledgeIndexJob: {
         parameters: {
             query?: never;
             header?: never;
@@ -330,39 +536,37 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["KnowledgeIndexRequest"];
+                "application/json": components["schemas"]["CreateKnowledgeIndexJobRequest"];
             };
         };
         responses: {
-            /** @description Indexing result */
+            /** @description Knowledge index job */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["KnowledgeIndexResponse"];
+                    "application/json": components["schemas"]["KnowledgeIndexJobResponse"];
                 };
             };
         };
     };
-    getRunDetail: {
+    listMCPTools: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                runId: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Stored run detail */
+            /** @description Tool catalog */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RunDetailResponse"];
+                    "application/json": components["schemas"]["MCPToolListResponse"];
                 };
             };
         };

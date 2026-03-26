@@ -1,31 +1,47 @@
 import { useState } from "react";
 
-import { postChat, type ChatResponse } from "../api/client";
-import { streamChat } from "../api/stream";
+import { createSession, getRun, listRunEvents, runChat, type Run, type RunEvent } from "../api/client";
+import { streamChatRun } from "../api/stream";
 import { SectionCard } from "../components/SectionCard";
 import { StatusPill } from "../components/StatusPill";
 
 export function ChatPage() {
-  const [sessionId, setSessionId] = useState("session-001");
-  const [question, setQuestion] = useState("支付服务 CPU 告警应该怎么排查？");
-  const [syncResult, setSyncResult] = useState<ChatResponse | null>(null);
-  const [streamOutput, setStreamOutput] = useState("");
-  const [streamEvents, setStreamEvents] = useState<string[]>([]);
+  const [sessionId, setSessionId] = useState("");
+  const [sessionTitle, setSessionTitle] = useState("Chat Agent Session");
+  const [query, setQuery] = useState("支付服务 CPU 告警应该怎么排查？");
+  const [run, setRun] = useState<Run | null>(null);
+  const [events, setEvents] = useState<RunEvent[]>([]);
+  const [streamText, setStreamText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleAsk() {
+  async function ensureSession() {
+    if (sessionId) {
+      return sessionId;
+    }
+    const response = await createSession({
+      title: sessionTitle,
+      mode: "chat",
+    });
+    setSessionId(response.data.id);
+    return response.data.id;
+  }
+
+  async function handleRun() {
     setLoading(true);
     setError(null);
     try {
-      const result = await postChat({
-        sessionId,
-        question,
-        topK: 3,
+      const currentSessionId = await ensureSession();
+      const response = await runChat({
+        sessionId: currentSessionId,
+        query,
+        topK: 4,
       });
-      setSyncResult(result);
+      setRun(response.data);
+      const eventResponse = await listRunEvents(response.data.id);
+      setEvents(eventResponse.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "问答失败");
+      setError(err instanceof Error ? err.message : "Chat run 失败");
     } finally {
       setLoading(false);
     }
@@ -34,24 +50,35 @@ export function ChatPage() {
   async function handleStream() {
     setLoading(true);
     setError(null);
-    setStreamOutput("");
-    setStreamEvents([]);
+    setStreamText("");
+    setEvents([]);
     try {
-      await streamChat(
+      const currentSessionId = await ensureSession();
+      await streamChatRun(
         {
-          sessionId,
-          question,
-          topK: 3,
+          sessionId: currentSessionId,
+          query,
+          topK: 4,
         },
-        (event) => {
-          setStreamEvents((current) => [...current, `${event.event}: ${event.data}`]);
-          if (event.event === "message") {
-            setStreamOutput((current) => current + event.data);
+        async (frame) => {
+          if (frame.event === "run_event") {
+            const event = JSON.parse(frame.data) as RunEvent;
+            setEvents((current) => [...current, event]);
+            if (event.role === "assistant" && event.content) {
+              setStreamText((current) => current + event.content);
+            }
+            return;
+          }
+          if (frame.event === "done") {
+            const completedRun = JSON.parse(frame.data) as Run;
+            setRun(completedRun);
+            const reloaded = await getRun(completedRun.id);
+            setRun(reloaded.data);
           }
         },
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "流式问答失败");
+      setError(err instanceof Error ? err.message : "流式 Chat run 失败");
     } finally {
       setLoading(false);
     }
@@ -60,84 +87,69 @@ export function ChatPage() {
   return (
     <div className="page-grid">
       <SectionCard
-        title="多轮对话"
-        description="相同 sessionId 会保留上下文，问答结果会同时保存到运行记录中。"
+        title="Chat Session 与 ReAct Run"
+        description="这里直接走新的 session/run API，展示真实 Agent 运行结果和事件流。"
       >
         <div className="form-grid">
           <label>
+            Session Title
+            <input value={sessionTitle} onChange={(event) => setSessionTitle(event.target.value)} />
+          </label>
+          <label>
             Session ID
-            <input
-              value={sessionId}
-              onChange={(event) => setSessionId(event.target.value)}
-            />
+            <input value={sessionId} onChange={(event) => setSessionId(event.target.value)} />
           </label>
           <label className="span-2">
-            问题
-            <textarea
-              rows={4}
-              value={question}
-              onChange={(event) => setQuestion(event.target.value)}
-            />
+            Query
+            <textarea rows={4} value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
         </div>
         <div className="action-row">
-          <button type="button" onClick={handleAsk} disabled={loading}>
-            {loading ? "处理中..." : "发送同步问答"}
+          <button type="button" onClick={handleRun} disabled={loading}>
+            {loading ? "运行中..." : "执行 Chat Run"}
           </button>
           <button type="button" className="ghost-button" onClick={handleStream} disabled={loading}>
-            发送流式问答
+            流式执行 Chat Run
           </button>
-          <StatusPill>topK=3</StatusPill>
+          <StatusPill>{sessionId ? "session ready" : "create on demand"}</StatusPill>
         </div>
         {error ? <p className="error-line">{error}</p> : null}
       </SectionCard>
 
       <SectionCard
-        title="同步问答结果"
-        description="展示最终答案、召回片段和建议追问方向。"
+        title="Run Summary"
+        description="这里展示最终 run 状态、summary 和 checkpoint 信息。"
       >
-        {syncResult ? (
+        {run ? (
           <div className="result-block">
-            <p className="answer-text">{syncResult.data.answer}</p>
-            <div className="chip-list">
-              {syncResult.data.suggestions.map((suggestion) => (
-                <span key={suggestion} className="chip">
-                  {suggestion}
-                </span>
-              ))}
+            <div className="result-header">
+              <h3>{run.id}</h3>
+              <StatusPill tone={run.status === "completed" ? "success" : "warning"}>
+                {run.status}
+              </StatusPill>
             </div>
-            <div className="list-block">
-              <h3>参考片段</h3>
-              {syncResult.data.references.map((reference) => (
-                <article key={`${reference.documentId}-${reference.title}`} className="reference-card">
-                  <div className="result-header">
-                    <strong>{reference.title}</strong>
-                    <StatusPill tone="success">score {reference.score}</StatusPill>
-                  </div>
-                  <p>{reference.excerpt}</p>
-                </article>
-              ))}
-            </div>
+            <p className="answer-text">{run.summary || "当前尚无最终摘要。"}</p>
+            <pre>{JSON.stringify(run, null, 2)}</pre>
           </div>
         ) : (
-          <p className="hint-line">点击“发送同步问答”后，这里会显示完整回答。</p>
+          <p className="hint-line">执行一次 Chat Run 后，这里会显示新的运行详情。</p>
         )}
       </SectionCard>
 
       <SectionCard
-        title="SSE 流式输出"
-        description="使用 fetch 读取 text/event-stream，模拟大模型逐段输出的体验。"
+        title="Event Timeline"
+        description="展示 Assistant、Tool、Transfer 等事件，流式运行时会实时追加。"
       >
         <div className="result-block">
           <div className="result-header">
-            <h3>流式文本</h3>
-            <StatusPill tone="warning">{streamOutput ? "streaming" : "idle"}</StatusPill>
+            <h3>Streaming assistant text</h3>
+            <StatusPill tone="warning">{streamText ? "live" : "idle"}</StatusPill>
           </div>
-          <p className="answer-text">{streamOutput || "尚未开始流式会话。"}</p>
+          <p className="answer-text">{streamText || "尚未开始流式输出。"}</p>
         </div>
         <div className="result-block">
-          <h3>事件轨迹</h3>
-          <pre>{streamEvents.length ? streamEvents.join("\n") : "暂无 SSE 事件"}</pre>
+          <h3>Run Events</h3>
+          <pre>{events.length ? JSON.stringify(events, null, 2) : "暂无事件"}</pre>
         </div>
       </SectionCard>
     </div>

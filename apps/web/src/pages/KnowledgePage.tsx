@@ -1,31 +1,31 @@
 import { useState } from "react";
 
 import {
-  postKnowledgeIndex,
-  uploadKnowledgeFile,
-  type KnowledgeIndexResponse,
-  type UploadFileResponse,
+  createKnowledgeIndexJob,
+  uploadKnowledgeDocument,
+  type KnowledgeDocument,
+  type KnowledgeIndexJob,
 } from "../api/client";
 import { SectionCard } from "../components/SectionCard";
 import { StatusPill } from "../components/StatusPill";
 
 export function KnowledgePage() {
   const [file, setFile] = useState<File | null>(null);
-  const [uploadResult, setUploadResult] = useState<UploadFileResponse | null>(null);
-  const [indexResult, setIndexResult] = useState<KnowledgeIndexResponse | null>(null);
+  const [document, setDocument] = useState<KnowledgeDocument | null>(null);
+  const [job, setJob] = useState<KnowledgeIndexJob | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleUpload() {
     if (!file) {
-      setError("请先选择一个 Markdown 或文本文件。");
+      setError("请先选择一个文档文件。");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const result = await uploadKnowledgeFile(file);
-      setUploadResult(result);
+      const response = await uploadKnowledgeDocument(file);
+      setDocument(response.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "上传失败");
     } finally {
@@ -37,15 +37,15 @@ export function KnowledgePage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await postKnowledgeIndex({
+      const response = await createKnowledgeIndexJob({
         documentIds,
-        chunkSize: 220,
-        overlap: 40,
-        topK: 3,
+        chunkSize: 500,
+        overlap: 80,
+        topK: 4,
       });
-      setIndexResult(result);
+      setJob(response.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "索引失败");
+      setError(err instanceof Error ? err.message : "索引任务创建失败");
     } finally {
       setLoading(false);
     }
@@ -55,65 +55,59 @@ export function KnowledgePage() {
     <div className="page-grid">
       <SectionCard
         title="知识文档上传"
-        description="上传 Markdown 或文本文件，API 会保存文件并登记为可索引文档。"
+        description="上传后端会写入知识文档表，后续再通过 Milvus 索引任务异步建立向量数据。"
       >
         <div className="action-row">
           <input
             type="file"
-            accept=".md,.txt,.markdown"
+            accept=".md,.txt,.html"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
           <button type="button" onClick={handleUpload} disabled={loading}>
-            {loading ? "上传中..." : "上传文件"}
+            {loading ? "上传中..." : "上传知识文档"}
           </button>
         </div>
-        {file ? (
-          <p className="hint-line">已选择：{file.name}</p>
-        ) : (
-          <p className="hint-line">建议先上传一份业务手册或故障复盘文档。</p>
-        )}
-        {uploadResult ? (
+        {file ? <p className="hint-line">已选择：{file.name}</p> : null}
+        {document ? (
           <div className="result-block">
             <div className="result-header">
               <h3>上传结果</h3>
-              <StatusPill tone="success">{uploadResult.data.status}</StatusPill>
+              <StatusPill tone="success">{document.status}</StatusPill>
             </div>
-            <pre>{JSON.stringify(uploadResult, null, 2)}</pre>
+            <pre>{JSON.stringify(document, null, 2)}</pre>
             <button
               type="button"
-              onClick={() => handleIndex([uploadResult.data.documentId])}
+              onClick={() => handleIndex([document.id])}
               disabled={loading}
             >
-              对刚上传的文档执行索引
+              对当前文档创建索引任务
             </button>
           </div>
         ) : null}
       </SectionCard>
 
       <SectionCard
-        title="知识索引"
-        description="执行文档分块和检索准备。默认也会对内置的示例运行手册重新建索引。"
+        title="知识索引任务"
+        description="索引任务会把文档分块、做 embedding，并写入 Milvus collection。"
       >
         <div className="action-row">
           <button type="button" onClick={() => handleIndex()} disabled={loading}>
-            {loading ? "处理中..." : "索引全部文档"}
+            {loading ? "提交中..." : "为全部知识文档创建索引任务"}
           </button>
-          <StatusPill>chunkSize=220 / topK=3</StatusPill>
+          <StatusPill>Milvus + OpenAI Embedding</StatusPill>
         </div>
-        {indexResult ? (
+        {job ? (
           <div className="result-block">
             <div className="result-header">
-              <h3>索引结果</h3>
-              <StatusPill tone="success">
-                {indexResult.data.indexedChunks} chunks
+              <h3>任务状态</h3>
+              <StatusPill tone={job.status === "completed" ? "success" : "warning"}>
+                {job.status}
               </StatusPill>
             </div>
-            <pre>{JSON.stringify(indexResult, null, 2)}</pre>
+            <pre>{JSON.stringify(job, null, 2)}</pre>
           </div>
         ) : (
-          <p className="hint-line">
-            首次启动后建议先点一次“索引全部文档”，确保内置示例知识可以被问答和诊断模块召回。
-          </p>
+          <p className="hint-line">创建索引任务后，返回的 job 对象会展示在这里。</p>
         )}
         {error ? <p className="error-line">{error}</p> : null}
       </SectionCard>

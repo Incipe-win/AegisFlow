@@ -1,39 +1,90 @@
 import { useState } from "react";
 
-import { getRunDetail, postDiagnose, type DiagnoseResponse, type RunDetailResponse } from "../api/client";
+import {
+  createSession,
+  getRun,
+  listRunEvents,
+  resumeRun,
+  runOps,
+  type Run,
+  type RunEvent,
+} from "../api/client";
 import { SectionCard } from "../components/SectionCard";
 import { StatusPill } from "../components/StatusPill";
-import { formatDate } from "../lib/format";
 
 export function OpsPage() {
+  const [sessionId, setSessionId] = useState("");
+  const [run, setRun] = useState<Run | null>(null);
+  const [events, setEvents] = useState<RunEvent[]>([]);
   const [form, setForm] = useState<{
     alertTitle: string;
     serviceName: string;
     severity: "critical" | "warning" | "info";
     summary: string;
-    sessionId: string;
   }>({
     alertTitle: "payment-service cpu usage high",
     serviceName: "payment-service",
     severity: "critical" as const,
     summary: "支付服务 CPU 连续 5 分钟高于 90%，错误率上升。",
-    sessionId: "ops-session-001",
   });
-  const [result, setResult] = useState<DiagnoseResponse | null>(null);
-  const [runDetail, setRunDetail] = useState<RunDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleDiagnose() {
+  async function ensureSession() {
+    if (sessionId) {
+      return sessionId;
+    }
+    const response = await createSession({
+      title: "Ops Supervisor Session",
+      mode: "ops",
+    });
+    setSessionId(response.data.id);
+    return response.data.id;
+  }
+
+  async function loadRun(runId: string) {
+    const runResponse = await getRun(runId);
+    const eventResponse = await listRunEvents(runId);
+    setRun(runResponse.data);
+    setEvents(eventResponse.data);
+  }
+
+  async function handleRun() {
     setLoading(true);
     setError(null);
     try {
-      const diagnoseResult = await postDiagnose(form);
-      setResult(diagnoseResult);
-      const detailResult = await getRunDetail(diagnoseResult.data.runId);
-      setRunDetail(detailResult);
+      const currentSessionId = await ensureSession();
+      const response = await runOps({
+        sessionId: currentSessionId,
+        alertTitle: form.alertTitle,
+        serviceName: form.serviceName,
+        severity: form.severity,
+        summary: form.summary,
+      });
+      await loadRun(response.data.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "诊断失败");
+      setError(err instanceof Error ? err.message : "Ops run 失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResume() {
+    if (!run) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const interruptId = run.interrupt?.contexts?.[0]?.id;
+      const response = await resumeRun(run.id, {
+        interruptId,
+        approved: true,
+        note: "Approved from demo console",
+      });
+      await loadRun(response.data.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "恢复运行失败");
     } finally {
       setLoading(false);
     }
@@ -42,12 +93,16 @@ export function OpsPage() {
   return (
     <div className="page-grid">
       <SectionCard
-        title="告警诊断"
-        description="输入告警上下文后，后端会检索知识库、调用工具并生成诊断建议。"
+        title="Ops Supervisor Run"
+        description="这里展示真实的 Session / Run / Resume 模型，以及 Supervisor + PlanExecute 的结果承载方式。"
       >
         <div className="form-grid">
           <label>
-            告警标题
+            Session ID
+            <input value={sessionId} onChange={(event) => setSessionId(event.target.value)} />
+          </label>
+          <label>
+            Alert Title
             <input
               value={form.alertTitle}
               onChange={(event) =>
@@ -56,7 +111,7 @@ export function OpsPage() {
             />
           </label>
           <label>
-            服务名
+            Service Name
             <input
               value={form.serviceName}
               onChange={(event) =>
@@ -65,7 +120,7 @@ export function OpsPage() {
             />
           </label>
           <label>
-            严重级别
+            Severity
             <select
               value={form.severity}
               onChange={(event) =>
@@ -81,7 +136,7 @@ export function OpsPage() {
             </select>
           </label>
           <label className="span-2">
-            摘要
+            Summary
             <textarea
               rows={4}
               value={form.summary}
@@ -92,66 +147,46 @@ export function OpsPage() {
           </label>
         </div>
         <div className="action-row">
-          <button type="button" onClick={handleDiagnose} disabled={loading}>
-            {loading ? "诊断中..." : "执行 AI 运维诊断"}
+          <button type="button" onClick={handleRun} disabled={loading}>
+            {loading ? "运行中..." : "执行 Ops Run"}
           </button>
-          <StatusPill tone="warning">Mock tools + Knowledge retrieval</StatusPill>
+          {run?.status === "interrupted" ? (
+            <button type="button" className="ghost-button" onClick={handleResume} disabled={loading}>
+              批准并恢复 Run
+            </button>
+          ) : null}
+          <StatusPill tone="warning">Supervisor + PlanExecute + Resume</StatusPill>
         </div>
         {error ? <p className="error-line">{error}</p> : null}
       </SectionCard>
 
       <SectionCard
-        title="诊断结果"
-        description="展示最终结论、执行步骤、知识召回片段和工具调用结果。"
+        title="Run Detail"
+        description="如果 ReporterAgent 触发了 approval.request，这里会看到 interrupted 状态和 interrupt context。"
       >
-        {result ? (
+        {run ? (
           <div className="result-block">
-            <p className="answer-text">{result.data.result}</p>
-            <div className="list-block">
-              <h3>执行步骤</h3>
-              <ol className="ordered-list">
-                {result.data.detail.map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ol>
+            <div className="result-header">
+              <h3>{run.id}</h3>
+              <StatusPill tone={run.status === "completed" ? "success" : "warning"}>
+                {run.status}
+              </StatusPill>
             </div>
-            <div className="list-block">
-              <h3>工具调用</h3>
-              {result.data.toolCalls.map((toolCall) => (
-                <article key={toolCall.name} className="reference-card">
-                  <div className="result-header">
-                    <strong>{toolCall.name}</strong>
-                    <StatusPill tone="success">{toolCall.status}</StatusPill>
-                  </div>
-                  <p>Input: {toolCall.input}</p>
-                  <p>Output: {toolCall.output}</p>
-                </article>
-              ))}
-            </div>
+            <p className="answer-text">{run.summary || "当前没有最终摘要。"}</p>
+            <pre>{JSON.stringify(run, null, 2)}</pre>
           </div>
         ) : (
-          <p className="hint-line">执行诊断后，这里会展示完整排障建议。</p>
+          <p className="hint-line">执行一次 Ops Run 后，这里会显示新的运行对象。</p>
         )}
       </SectionCard>
 
       <SectionCard
-        title="运行记录"
-        description="展示运行详情接口返回的数据，便于后续扩展历史列表或审计视图。"
+        title="Event Timeline"
+        description="展示 transfer、tool_call、message、interrupted 等事件，便于解释 Multi-Agent 执行路径。"
       >
-        {runDetail ? (
-          <div className="result-block">
-            <div className="result-header">
-              <h3>{runDetail.data.runId}</h3>
-              <StatusPill tone="success">{runDetail.data.status}</StatusPill>
-            </div>
-            <p className="hint-line">
-              运行时间：{formatDate(runDetail.data.createdAt)}
-            </p>
-            <pre>{JSON.stringify(runDetail, null, 2)}</pre>
-          </div>
-        ) : (
-          <p className="hint-line">本次诊断完成后，会自动查询并展示运行详情。</p>
-        )}
+        <div className="result-block">
+          <pre>{events.length ? JSON.stringify(events, null, 2) : "暂无事件"}</pre>
+        </div>
       </SectionCard>
     </div>
   );

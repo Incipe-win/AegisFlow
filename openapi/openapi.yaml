@@ -1,93 +1,155 @@
 openapi: 3.1.0
 info:
-  title: AegisFlow API
-  version: 1.0.0
-  description: OpenAPI contract for the AegisFlow intelligent OnCall demo platform.
+  title: AegisFlow Agent Platform API
+  version: 2.0.0
+  description: OpenAPI contract for the upgraded AegisFlow GoFrame + Eino + RAG + MCP platform.
 servers:
   - url: http://localhost:6872
     description: Local API server
 tags:
-  - name: Knowledge
-  - name: Chat
-  - name: Ops
+  - name: Sessions
   - name: Runs
+  - name: Knowledge
+  - name: Tools
 paths:
-  /api/v1/chat:
+  /api/v2/sessions:
     post:
-      tags: [Chat]
-      summary: Ask a question with session memory
-      operationId: postChat
+      tags: [Sessions]
+      summary: Create an agent session
+      operationId: createSession
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ChatRequest"
+              $ref: "#/components/schemas/CreateSessionRequest"
       responses:
         "200":
-          description: Chat response
+          description: Session created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ChatResponse"
-  /api/v1/chat/stream:
+                $ref: "#/components/schemas/SessionResponse"
+  /api/v2/runs/chat:
     post:
-      tags: [Chat]
-      summary: Stream a chat response through SSE
-      operationId: postChatStream
+      tags: [Runs]
+      summary: Run a chat agent task
+      operationId: runChat
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ChatRequest"
+              $ref: "#/components/schemas/ChatRunRequest"
       responses:
         "200":
-          description: SSE stream
+          description: Chat run result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunResponse"
+  /api/v2/runs/chat/stream:
+    post:
+      tags: [Runs]
+      summary: Stream a chat agent task
+      operationId: runChatStream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRunRequest"
+      responses:
+        "200":
+          description: SSE stream of run events
           content:
             text/event-stream:
               schema:
                 type: string
-                description: >
-                  Server-Sent Events stream. Events include connected, message,
-                  reference, done and error.
-              examples:
-                basic:
-                  value: |-
-                    id: 1742970000
-                    event: connected
-                    data: {"status":"connected","sessionId":"session-001"}
-
-                    id: 1742970001
-                    event: message
-                    data: 根据当前知识库内容，支付服务告警通常需要先检查 CPU 和错误日志。
-
-                    id: 1742970002
-                    event: done
-                    data: {"status":"completed"}
-  /api/v1/ops/diagnose:
+                description: SSE events named run_event, error, done
+  /api/v2/runs/ops:
     post:
-      tags: [Ops]
-      summary: Diagnose an OnCall alert and return an execution trail
-      operationId: postDiagnose
+      tags: [Runs]
+      summary: Run an operations supervisor workflow
+      operationId: runOps
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/DiagnoseRequest"
+              $ref: "#/components/schemas/OpsRunRequest"
       responses:
         "200":
-          description: Diagnosis report
+          description: Ops run result
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DiagnoseResponse"
-  /api/v1/knowledge/files:
+                $ref: "#/components/schemas/RunResponse"
+  /api/v2/runs/{runId}:
+    get:
+      tags: [Runs]
+      summary: Get a run with event summary
+      operationId: getRun
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Run detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunResponse"
+  /api/v2/runs/{runId}/events:
+    get:
+      tags: [Runs]
+      summary: List stored run events
+      operationId: listRunEvents
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Run events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunEventListResponse"
+  /api/v2/runs/{runId}/resume:
+    post:
+      tags: [Runs]
+      summary: Resume an interrupted run
+      operationId: resumeRun
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResumeRunRequest"
+      responses:
+        "200":
+          description: Resumed run result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunResponse"
+  /api/v2/knowledge/documents:
     post:
       tags: [Knowledge]
-      summary: Upload a knowledge file
-      operationId: postKnowledgeFile
+      summary: Upload a knowledge document
+      operationId: uploadKnowledgeDocument
       requestBody:
         required: true
         content:
@@ -101,192 +163,87 @@ paths:
                   format: binary
       responses:
         "200":
-          description: Upload result
+          description: Uploaded knowledge document
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UploadFileResponse"
-  /api/v1/knowledge/index:
+                $ref: "#/components/schemas/KnowledgeDocumentResponse"
+  /api/v2/knowledge/index-jobs:
     post:
       tags: [Knowledge]
-      summary: Index uploaded or seeded knowledge documents
-      operationId: postKnowledgeIndex
+      summary: Create an asynchronous knowledge indexing job
+      operationId: createKnowledgeIndexJob
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/KnowledgeIndexRequest"
+              $ref: "#/components/schemas/CreateKnowledgeIndexJobRequest"
       responses:
         "200":
-          description: Indexing result
+          description: Knowledge index job
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/KnowledgeIndexResponse"
-  /api/v1/runs/{runId}:
+                $ref: "#/components/schemas/KnowledgeIndexJobResponse"
+  /api/v2/tools/mcp:
     get:
-      tags: [Runs]
-      summary: Query a stored run detail
-      operationId: getRunDetail
-      parameters:
-        - name: runId
-          in: path
-          required: true
-          schema:
-            type: string
+      tags: [Tools]
+      summary: List MCP tools discovered from the MCP server
+      operationId: listMCPTools
       responses:
         "200":
-          description: Stored run detail
+          description: Tool catalog
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RunDetailResponse"
+                $ref: "#/components/schemas/MCPToolListResponse"
 components:
   schemas:
-    ApiResponse:
+    CreateSessionRequest:
       type: object
-      required: [message]
       properties:
-        message:
-          type: string
-          example: OK
-    Reference:
-      type: object
-      required: [documentId, title, excerpt, score]
-      properties:
-        documentId:
-          type: string
         title:
           type: string
-        excerpt:
+        mode:
           type: string
-        score:
-          type: number
-          format: float
-    ToolCallRecord:
+          example: general
+    ChatRunRequest:
       type: object
-      required: [name, input, output, status]
-      properties:
-        name:
-          type: string
-        input:
-          type: string
-        output:
-          type: string
-        status:
-          type: string
-          enum: [success, failed]
-    ChatRequest:
-      type: object
-      required: [sessionId, question]
+      required: [sessionId, query]
       properties:
         sessionId:
           type: string
-          example: session-001
-        question:
+        query:
           type: string
-          example: 支付服务 CPU 告警应该怎么排查？
         topK:
           type: integer
-          default: 3
-          minimum: 1
-          maximum: 10
-    ChatResponseData:
+          default: 4
+    OpsRunRequest:
       type: object
-      required: [sessionId, answer, references, suggestions]
+      required: [sessionId, alertTitle, serviceName, severity, summary]
       properties:
         sessionId:
           type: string
-        answer:
-          type: string
-        references:
-          type: array
-          items:
-            $ref: "#/components/schemas/Reference"
-        suggestions:
-          type: array
-          items:
-            type: string
-    ChatResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponse"
-        - type: object
-          required: [data]
-          properties:
-            data:
-              $ref: "#/components/schemas/ChatResponseData"
-    DiagnoseRequest:
-      type: object
-      required: [alertTitle, serviceName, severity, summary]
-      properties:
         alertTitle:
           type: string
-          example: payment-service cpu usage high
         serviceName:
           type: string
-          example: payment-service
         severity:
           type: string
           enum: [critical, warning, info]
         summary:
           type: string
-          example: 支付服务 CPU 连续 5 分钟高于 90%，错误率上升。
-        sessionId:
-          type: string
-          default: ops-session-001
-    DiagnoseResponseData:
+    ResumeRunRequest:
       type: object
-      required: [runId, result, detail, references, toolCalls]
       properties:
-        runId:
+        interruptId:
           type: string
-        result:
+        approved:
+          type: boolean
+        note:
           type: string
-        detail:
-          type: array
-          items:
-            type: string
-        references:
-          type: array
-          items:
-            $ref: "#/components/schemas/Reference"
-        toolCalls:
-          type: array
-          items:
-            $ref: "#/components/schemas/ToolCallRecord"
-    DiagnoseResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponse"
-        - type: object
-          required: [data]
-          properties:
-            data:
-              $ref: "#/components/schemas/DiagnoseResponseData"
-    UploadFileResponseData:
-      type: object
-      required: [documentId, fileName, filePath, fileSize, status]
-      properties:
-        documentId:
-          type: string
-        fileName:
-          type: string
-        filePath:
-          type: string
-        fileSize:
-          type: integer
-        status:
-          type: string
-          enum: [uploaded, indexed]
-    UploadFileResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponse"
-        - type: object
-          required: [data]
-          properties:
-            data:
-              $ref: "#/components/schemas/UploadFileResponseData"
-    KnowledgeIndexRequest:
+    CreateKnowledgeIndexJobRequest:
       type: object
       properties:
         documentIds:
@@ -295,70 +252,226 @@ components:
             type: string
         chunkSize:
           type: integer
-          default: 220
+          default: 500
         overlap:
           type: integer
-          default: 40
+          default: 80
         topK:
           type: integer
-          default: 3
-    KnowledgeIndexResponseData:
+          default: 4
+    Session:
       type: object
-      required: [indexedDocuments, indexedChunks, chunkSize, overlap, topK]
+      required: [id, title, mode, createdAt, updatedAt]
       properties:
-        indexedDocuments:
-          type: integer
-        indexedChunks:
-          type: integer
-        chunkSize:
-          type: integer
-        overlap:
-          type: integer
-        topK:
-          type: integer
-    KnowledgeIndexResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponse"
-        - type: object
-          required: [data]
-          properties:
-            data:
-              $ref: "#/components/schemas/KnowledgeIndexResponseData"
-    RunDetailData:
+        id:
+          type: string
+        title:
+          type: string
+        mode:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    InterruptContext:
       type: object
-      required: [runId, runType, status, summary, detail, references, toolCalls, createdAt]
+      required: [id, address, isRootCause]
       properties:
+        id:
+          type: string
+        address:
+          type: string
+        info:
+          description: Interrupt metadata provided by the paused component
+        isRootCause:
+          type: boolean
+    InterruptData:
+      type: object
+      properties:
+        contexts:
+          type: array
+          items:
+            $ref: "#/components/schemas/InterruptContext"
+    RunEvent:
+      type: object
+      required: [id, runId, sequence, eventType, createdAt]
+      properties:
+        id:
+          type: string
         runId:
+          type: string
+        sequence:
+          type: integer
+        eventType:
+          type: string
+          example: tool_call
+        agentName:
+          type: string
+        role:
+          type: string
+        toolName:
+          type: string
+        content:
+          type: string
+        payload:
+          description: Event-specific JSON payload
+        createdAt:
+          type: string
+          format: date-time
+    Run:
+      type: object
+      required: [id, sessionId, runType, status, summary, checkpointId, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        sessionId:
           type: string
         runType:
           type: string
           enum: [chat, ops]
         status:
           type: string
-          enum: [completed, failed]
+          enum: [running, completed, interrupted, failed]
         summary:
           type: string
-        detail:
+        errorMessage:
+          type: string
+        checkpointId:
+          type: string
+        interrupt:
+          $ref: "#/components/schemas/InterruptData"
+        events:
           type: array
           items:
-            type: string
-        references:
-          type: array
-          items:
-            $ref: "#/components/schemas/Reference"
-        toolCalls:
-          type: array
-          items:
-            $ref: "#/components/schemas/ToolCallRecord"
+            $ref: "#/components/schemas/RunEvent"
         createdAt:
           type: string
           format: date-time
-    RunDetailResponse:
-      allOf:
-        - $ref: "#/components/schemas/ApiResponse"
-        - type: object
-          required: [data]
-          properties:
-            data:
-              $ref: "#/components/schemas/RunDetailData"
-
+        updatedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+    KnowledgeDocument:
+      type: object
+      required: [id, fileName, title, contentType, filePath, status, sourceType, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        fileName:
+          type: string
+        title:
+          type: string
+        contentType:
+          type: string
+        filePath:
+          type: string
+        status:
+          type: string
+        sourceType:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    KnowledgeIndexJob:
+      type: object
+      required: [id, status, collectionName, chunkSize, overlap, topK, indexedChunks, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        documentId:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+        collectionName:
+          type: string
+        chunkSize:
+          type: integer
+        overlap:
+          type: integer
+        topK:
+          type: integer
+        indexedChunks:
+          type: integer
+        errorMessage:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+    MCPToolDescriptor:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        schemaJson:
+          type: string
+    SessionResponse:
+      type: object
+      required: [message, data]
+      properties:
+        message:
+          type: string
+        data:
+          $ref: "#/components/schemas/Session"
+    RunResponse:
+      type: object
+      required: [message, data]
+      properties:
+        message:
+          type: string
+        data:
+          $ref: "#/components/schemas/Run"
+    RunEventListResponse:
+      type: object
+      required: [message, data]
+      properties:
+        message:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RunEvent"
+    KnowledgeDocumentResponse:
+      type: object
+      required: [message, data]
+      properties:
+        message:
+          type: string
+        data:
+          $ref: "#/components/schemas/KnowledgeDocument"
+    KnowledgeIndexJobResponse:
+      type: object
+      required: [message, data]
+      properties:
+        message:
+          type: string
+        data:
+          $ref: "#/components/schemas/KnowledgeIndexJob"
+    MCPToolListResponse:
+      type: object
+      required: [message, data]
+      properties:
+        message:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/MCPToolDescriptor"

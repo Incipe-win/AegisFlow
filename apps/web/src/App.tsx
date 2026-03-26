@@ -4,8 +4,9 @@ import { Shell } from "./components/Shell";
 import { ChatPage } from "./pages/ChatPage";
 import { KnowledgePage } from "./pages/KnowledgePage";
 import { OpsPage } from "./pages/OpsPage";
+import { ToolsPage } from "./pages/ToolsPage";
 
-type TabKey = "knowledge" | "chat" | "ops";
+type TabKey = "knowledge" | "chat" | "ops" | "tools";
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabKey>("knowledge");
@@ -15,20 +16,20 @@ function App() {
       <header className="hero-panel">
         <div>
           <p className="eyebrow">Demo Console</p>
-          <h2>把知识检索、对话和 AIOps 串成一条可演示的 Agent 主链路</h2>
+          <h2>把 Eino ReAct、Plan-Execute、Multi-Agent、Milvus RAG 和 MCP 串成一条真实主链路</h2>
         </div>
         <div className="hero-metrics">
           <article>
-            <strong>OpenAPI</strong>
-            <span>Contract-first</span>
+            <strong>Eino</strong>
+            <span>ADK Runtime</span>
           </article>
           <article>
-            <strong>GoFrame</strong>
-            <span>DAO-style API</span>
+            <strong>Milvus</strong>
+            <span>Vector Retrieval</span>
           </article>
           <article>
-            <strong>SSE</strong>
-            <span>Streaming UX</span>
+            <strong>MCP</strong>
+            <span>Protocol Tools</span>
           </article>
         </div>
       </header>
@@ -36,9 +37,9 @@ function App() {
       {activeTab === "knowledge" ? <KnowledgePage /> : null}
       {activeTab === "chat" ? <ChatPage /> : null}
       {activeTab === "ops" ? <OpsPage /> : null}
+      {activeTab === "tools" ? <ToolsPage /> : null}
     </Shell>
   );
 }
 
 export default App;
-

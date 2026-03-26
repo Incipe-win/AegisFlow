@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-type TabKey = "knowledge" | "chat" | "ops";
+type TabKey = "knowledge" | "chat" | "ops" | "tools";
 
 type ShellProps = {
   activeTab: TabKey;
@@ -10,8 +10,9 @@ type ShellProps = {
 
 const tabs: Array<{ key: TabKey; label: string; hint: string }> = [
   { key: "knowledge", label: "知识库", hint: "上传与索引内部文档" },
-  { key: "chat", label: "智能问答", hint: "多轮对话与 SSE 输出" },
-  { key: "ops", label: "AI 运维", hint: "告警诊断与工具轨迹" },
+  { key: "chat", label: "Chat Run", hint: "ReAct 运行与事件流" },
+  { key: "ops", label: "Ops Run", hint: "Supervisor 与 PlanExecute" },
+  { key: "tools", label: "MCP Tools", hint: "工具目录与协议接入" },
 ];
 
 export function Shell({ activeTab, onTabChange, children }: ShellProps) {
@@ -22,7 +23,7 @@ export function Shell({ activeTab, onTabChange, children }: ShellProps) {
           <p className="eyebrow">AegisFlow</p>
           <h1>智能运维 Agent 平台</h1>
           <p className="brand-copy">
-            前后端分离、OpenAPI 优先、可用于简历演示的 OnCall MVP。
+            GoFrame + Eino + RAG + MCP 的真实 Agent 平台演示。
           </p>
         </div>
         <nav className="nav-list">
@@ -41,9 +42,9 @@ export function Shell({ activeTab, onTabChange, children }: ShellProps) {
         <div className="sidebar-note">
           <p>演示建议</p>
           <ul>
-            <li>先执行一次知识索引</li>
-            <li>再演示流式问答</li>
-            <li>最后运行告警诊断</li>
+            <li>先创建知识索引任务</li>
+            <li>再运行 Chat ReAct</li>
+            <li>最后演示 Ops Supervisor 与 Resume</li>
           </ul>
         </div>
       </aside>
@@ -51,4 +52,3 @@ export function Shell({ activeTab, onTabChange, children }: ShellProps) {
     </div>
   );
 }
-
