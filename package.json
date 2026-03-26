@@ -1,0 +1,13 @@
+{
+  "name": "aegisflow",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "generate:api": "npm --workspace apps/web run generate:api",
+    "dev:web": "npm --workspace apps/web run dev",
+    "build:web": "npm --workspace apps/web run build"
+  }
+}
+

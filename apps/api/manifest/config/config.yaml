@@ -1,0 +1,10 @@
+server:
+  address: ":6872"
+
+database:
+  default:
+    link: "mysql:aegisflow:aegisflow@tcp(127.0.0.1:3307)/aegisflow?charset=utf8mb4&parseTime=true&loc=Local"
+    debug: false
+
+logger:
+  level: "all"

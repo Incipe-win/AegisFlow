@@ -1,0 +1,364 @@
+openapi: 3.1.0
+info:
+  title: AegisFlow API
+  version: 1.0.0
+  description: OpenAPI contract for the AegisFlow intelligent OnCall demo platform.
+servers:
+  - url: http://localhost:6872
+    description: Local API server
+tags:
+  - name: Knowledge
+  - name: Chat
+  - name: Ops
+  - name: Runs
+paths:
+  /api/v1/chat:
+    post:
+      tags: [Chat]
+      summary: Ask a question with session memory
+      operationId: postChat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+      responses:
+        "200":
+          description: Chat response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+  /api/v1/chat/stream:
+    post:
+      tags: [Chat]
+      summary: Stream a chat response through SSE
+      operationId: postChatStream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+      responses:
+        "200":
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: >
+                  Server-Sent Events stream. Events include connected, message,
+                  reference, done and error.
+              examples:
+                basic:
+                  value: |-
+                    id: 1742970000
+                    event: connected
+                    data: {"status":"connected","sessionId":"session-001"}
+
+                    id: 1742970001
+                    event: message
+                    data: 根据当前知识库内容，支付服务告警通常需要先检查 CPU 和错误日志。
+
+                    id: 1742970002
+                    event: done
+                    data: {"status":"completed"}
+  /api/v1/ops/diagnose:
+    post:
+      tags: [Ops]
+      summary: Diagnose an OnCall alert and return an execution trail
+      operationId: postDiagnose
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiagnoseRequest"
+      responses:
+        "200":
+          description: Diagnosis report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiagnoseResponse"
+  /api/v1/knowledge/files:
+    post:
+      tags: [Knowledge]
+      summary: Upload a knowledge file
+      operationId: postKnowledgeFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Upload result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadFileResponse"
+  /api/v1/knowledge/index:
+    post:
+      tags: [Knowledge]
+      summary: Index uploaded or seeded knowledge documents
+      operationId: postKnowledgeIndex
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeIndexRequest"
+      responses:
+        "200":
+          description: Indexing result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeIndexResponse"
+  /api/v1/runs/{runId}:
+    get:
+      tags: [Runs]
+      summary: Query a stored run detail
+      operationId: getRunDetail
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Stored run detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunDetailResponse"
+components:
+  schemas:
+    ApiResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: OK
+    Reference:
+      type: object
+      required: [documentId, title, excerpt, score]
+      properties:
+        documentId:
+          type: string
+        title:
+          type: string
+        excerpt:
+          type: string
+        score:
+          type: number
+          format: float
+    ToolCallRecord:
+      type: object
+      required: [name, input, output, status]
+      properties:
+        name:
+          type: string
+        input:
+          type: string
+        output:
+          type: string
+        status:
+          type: string
+          enum: [success, failed]
+    ChatRequest:
+      type: object
+      required: [sessionId, question]
+      properties:
+        sessionId:
+          type: string
+          example: session-001
+        question:
+          type: string
+          example: 支付服务 CPU 告警应该怎么排查？
+        topK:
+          type: integer
+          default: 3
+          minimum: 1
+          maximum: 10
+    ChatResponseData:
+      type: object
+      required: [sessionId, answer, references, suggestions]
+      properties:
+        sessionId:
+          type: string
+        answer:
+          type: string
+        references:
+          type: array
+          items:
+            $ref: "#/components/schemas/Reference"
+        suggestions:
+          type: array
+          items:
+            type: string
+    ChatResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/ChatResponseData"
+    DiagnoseRequest:
+      type: object
+      required: [alertTitle, serviceName, severity, summary]
+      properties:
+        alertTitle:
+          type: string
+          example: payment-service cpu usage high
+        serviceName:
+          type: string
+          example: payment-service
+        severity:
+          type: string
+          enum: [critical, warning, info]
+        summary:
+          type: string
+          example: 支付服务 CPU 连续 5 分钟高于 90%，错误率上升。
+        sessionId:
+          type: string
+          default: ops-session-001
+    DiagnoseResponseData:
+      type: object
+      required: [runId, result, detail, references, toolCalls]
+      properties:
+        runId:
+          type: string
+        result:
+          type: string
+        detail:
+          type: array
+          items:
+            type: string
+        references:
+          type: array
+          items:
+            $ref: "#/components/schemas/Reference"
+        toolCalls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCallRecord"
+    DiagnoseResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/DiagnoseResponseData"
+    UploadFileResponseData:
+      type: object
+      required: [documentId, fileName, filePath, fileSize, status]
+      properties:
+        documentId:
+          type: string
+        fileName:
+          type: string
+        filePath:
+          type: string
+        fileSize:
+          type: integer
+        status:
+          type: string
+          enum: [uploaded, indexed]
+    UploadFileResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/UploadFileResponseData"
+    KnowledgeIndexRequest:
+      type: object
+      properties:
+        documentIds:
+          type: array
+          items:
+            type: string
+        chunkSize:
+          type: integer
+          default: 220
+        overlap:
+          type: integer
+          default: 40
+        topK:
+          type: integer
+          default: 3
+    KnowledgeIndexResponseData:
+      type: object
+      required: [indexedDocuments, indexedChunks, chunkSize, overlap, topK]
+      properties:
+        indexedDocuments:
+          type: integer
+        indexedChunks:
+          type: integer
+        chunkSize:
+          type: integer
+        overlap:
+          type: integer
+        topK:
+          type: integer
+    KnowledgeIndexResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/KnowledgeIndexResponseData"
+    RunDetailData:
+      type: object
+      required: [runId, runType, status, summary, detail, references, toolCalls, createdAt]
+      properties:
+        runId:
+          type: string
+        runType:
+          type: string
+          enum: [chat, ops]
+        status:
+          type: string
+          enum: [completed, failed]
+        summary:
+          type: string
+        detail:
+          type: array
+          items:
+            type: string
+        references:
+          type: array
+          items:
+            $ref: "#/components/schemas/Reference"
+        toolCalls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCallRecord"
+        createdAt:
+          type: string
+          format: date-time
+    RunDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: "#/components/schemas/RunDetailData"
+
