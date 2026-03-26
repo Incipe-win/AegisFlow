@@ -2,52 +2,73 @@
 
 [English](./README.md) | 简体中文
 
-AegisFlow 是一个面向简历展示和本地演示的智能运维 / OnCall 平台。项目采用前后端分离架构，整合 GoFrame API 服务、React 控制台、OpenAPI 契约、DAO 风格数据层、轻量 RAG 检索链路，以及可替换为 MCP 或真实基础设施的 mock AIOps 工具。
+AegisFlow 现在已经从原来的演示型 mock OnCall 项目升级为真实技术栈版本，主链路实际使用了 `GoFrame`、`Eino`、`Milvus RAG`、`ReAct`、`Plan-Execute-Replan`、`Multi-Agent` 和 `MCP`。
 
 ## 项目结构
 
-- `apps/api`：GoFrame 后端服务，包含 DAO 风格仓储、知识索引、智能问答和运维诊断。
-- `apps/web`：React + Vite 前端控制台，使用 OpenAPI 生成的 TypeScript 类型进行联调。
-- `openapi/openapi.yaml`：唯一的接口契约源。
-- `docs/接口文档.md`：基于 OpenAPI 整理的人类可读接口文档。
-- `LICENSE`：开源许可证。
+- `apps/api`：GoFrame 后端服务，负责 session/run/event API、DAO 持久化、SSE 流式输出，以及 Eino Agent 编排。
+- `apps/mcp`：使用 `mark3labs/mcp-go` 构建的独立 Go MCP Server，通过 SSE 暴露工具。
+- `apps/web`：React + Vite 控制台，展示 Chat Run、Ops Run、Resume、事件时间线和 MCP 工具目录。
+- `openapi/openapi.yaml`：新的 `/api/v2` OpenAPI 契约。
 
-## 核心能力
+## 真实技术栈覆盖
 
-- 知识库索引：上传 Markdown 或文本文件，执行文档分块并建立可检索内容。
-- 智能问答：支持多轮上下文、知识检索增强和 SSE 流式输出。
-- AI 运维诊断：输入告警信息后，自动完成知识检索、工具调用、分析归纳和建议生成。
+- `GoFrame`：承载 HTTP 服务、路由、配置和 MySQL DAO。
+- `Eino`：承载 ADK Runner、Chat Agent、Supervisor 和 PlanExecute 编排。
+- `RAG`：使用 OpenAI-compatible embedding + Milvus 建立真实检索链路。
+- `ReAct`：聊天链路通过真实工具调用完成问答。
+- `Plan-Executor`：运维链路使用 `adk/prebuilt/planexecute`。
+- `Multi-Agent`：运维链路使用 Supervisor 协调多个子 Agent。
+- `MCP`：工具由独立 MCP 服务提供，API 侧通过 Eino MCP wrapper 消费。
 
-## 本地开发
+## 本地依赖
 
-### 1. 安装依赖
-
-```bash
-cd apps/api
-go mod tidy
-
-cd ../web
-npm install
-```
-
-### 2. 启动基础设施
+启动 MySQL 和 Milvus：
 
 ```bash
-docker compose up -d mysql
+docker compose up -d mysql etcd minio milvus
 ```
 
-内置 MySQL 容器暴露在 `127.0.0.1:3307`，避免与本机已有的 `3306` 冲突。
+端口说明：
 
-### 3. 启动后端
+- MySQL：`127.0.0.1:3307`
+- Milvus：`127.0.0.1:19530`
+- MinIO API：`127.0.0.1:9000`
+- MinIO Console：`127.0.0.1:9001`
+
+## 必需环境变量
+
+如果要真正跑通聊天、运维和知识索引，请先配置 OpenAI-compatible 模型参数：
 
 ```bash
-cd apps/api
-go run .
+export AEGISFLOW_OPENAI_API_KEY=your_key
+export AEGISFLOW_OPENAI_BASE_URL=https://your-openai-compatible-endpoint/v1
+export AEGISFLOW_CHAT_MODEL=gpt-4.1-mini
+export AEGISFLOW_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
-后端默认监听 `http://localhost:6872`。
+可选环境变量：
 
-### 4. 生成前端接口类型并启动控制台
+```bash
+export AEGISFLOW_MCP_SSE_URL=http://127.0.0.1:8090/sse
+export AEGISFLOW_MILVUS_ADDR=127.0.0.1:19530
+```
+
+## 启动方式
+
+启动 MCP Server：
+
+```bash
+npm run dev:mcp
+```
+
+启动 API：
+
+```bash
+npm run dev:api
+```
+
+启动前端：
 
 ```bash
 cd apps/web
@@ -55,20 +76,20 @@ npm run generate:api
 npm run dev
 ```
 
-前端默认运行在 `http://localhost:5173`。
+前端开发服务器默认监听 `0.0.0.0:5173`，可以直接通过 `http://<你的IP>:5173` 访问。
+前端默认会把 API 请求发到 `http://<当前访问主机>:6872`。
 
 ## 建议演示顺序
 
-1. 先执行知识索引，确保内置样例文档可以被召回。
-2. 进入智能问答页面，展示多轮问答和 SSE 流式返回。
-3. 进入 AI 运维页面，输入告警信息并展示工具调用轨迹和诊断建议。
+1. 上传一份运行手册，并创建知识索引任务。
+2. 创建 Chat Session，执行一次 Chat Run。
+3. 创建 Ops Session，执行一次 Supervisor 运维诊断。
+4. 在控制台中批准并恢复被中断的 Ops Run。
+5. 打开 MCP Tool Catalog，查看协议工具目录。
 
-## 开发说明
+## 说明
 
-- 当前 MVP 采用确定性的 mock Agent 逻辑，因此不依赖外部大模型密钥也可以完成本地演示。
-- 如果修改了 `openapi/openapi.yaml`，请重新执行 `npm --workspace apps/web run generate:api`。
-- `node_modules`、本地上传文件、前端构建产物、TypeScript 构建缓存和编辑器配置不应提交到 Git。
+- API 即使没有模型密钥也能启动，但 Chat、Ops 和知识索引会在真正执行时失败。
+- MCP 工具已经是真实协议工具，但其数据源目前仍然是本地演示数据，便于本地安全演示。
+- 项目使用 MIT License。
 
-## 开源协议
-
-本项目使用 MIT License。

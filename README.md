@@ -2,50 +2,73 @@
 
 English | [简体中文](./README.zh-CN.md)
 
-AegisFlow is a front-end/back-end separated intelligent OnCall platform for resume demos and local product walkthroughs. The project combines a GoFrame API service, a React console, OpenAPI-first contracts, a DAO-style data layer, a lightweight RAG pipeline, and mock AIOps tools that can later be replaced with MCP or real infrastructure providers.
+AegisFlow is a Go-first intelligent OnCall platform that now uses the real stack behind the project narrative: `GoFrame`, `Eino`, `Milvus-based RAG`, `ReAct`, `Plan-Execute-Replan`, `Multi-Agent`, and `MCP`.
 
 ## Architecture
 
-- `apps/api`: GoFrame API service with DAO-style repositories, knowledge indexing, chat, and ops diagnosis.
-- `apps/web`: React + Vite console driven by OpenAPI-generated TypeScript types.
-- `openapi/openapi.yaml`: the only API contract source of truth.
-- `docs/接口文档.md`: human-readable API guide derived from OpenAPI.
-- `README.zh-CN.md`: simplified Chinese project guide.
-- `LICENSE`: open source license for reuse and distribution.
+- `apps/api`: GoFrame API service, DAO-style persistence, run/session/event APIs, SSE streaming, and Eino agent orchestration.
+- `apps/mcp`: standalone Go MCP server built with `mark3labs/mcp-go`, exposing real protocol tools over SSE.
+- `apps/web`: React + Vite console for session creation, chat runs, ops runs, resume flow, event timelines, and MCP tool catalog.
+- `openapi/openapi.yaml`: the `/api/v2` contract-first API definition.
 
-## Core Flows
+## Real Stack Coverage
 
-- Knowledge indexing: upload Markdown or text files, split them into chunks, score them, and store them for retrieval.
-- Chat agent: multi-turn Q&A with context memory, knowledge retrieval, and SSE streaming output.
-- Ops diagnosis: ingest alert context, retrieve runbooks, call mock tools, and produce diagnosis suggestions with a full execution trail.
+- `GoFrame`: HTTP server, routing, config, and MySQL DAO access.
+- `Eino`: ADK runner, chat agents, supervisor orchestration, and plan-execute-replan workflow.
+- `RAG`: OpenAI-compatible embeddings + Milvus indexer/retriever.
+- `ReAct`: chat agent with real tool calling through MCP tools.
+- `Plan-Executor`: ops diagnosis workflow using `adk/prebuilt/planexecute`.
+- `Multi-Agent`: ops supervisor coordinating runbook, execution, and reporting specialists.
+- `MCP`: standalone SSE MCP server plus Eino MCP tool wrapper on the API side.
 
-## Local Development
+## Local Dependencies
 
-### 1. Install dependencies
-
-```bash
-cd apps/api && go mod tidy
-cd ../web && npm install
-```
-
-### 2. Start infrastructure
+Start MySQL and Milvus:
 
 ```bash
-docker compose up -d mysql
+docker compose up -d mysql etcd minio milvus
 ```
 
-The bundled MySQL container is exposed on `127.0.0.1:3307` to avoid conflicts with an existing local MySQL instance.
+Ports:
 
-### 3. Run the API
+- MySQL: `127.0.0.1:3307`
+- Milvus: `127.0.0.1:19530`
+- MinIO API: `127.0.0.1:9000`
+- MinIO Console: `127.0.0.1:9001`
+
+## Required Environment Variables
+
+Set the model access variables before running the API if you want chat, ops, or indexing to work end-to-end:
 
 ```bash
-cd apps/api
-go run .
+export AEGISFLOW_OPENAI_API_KEY=your_key
+export AEGISFLOW_OPENAI_BASE_URL=https://your-openai-compatible-endpoint/v1
+export AEGISFLOW_CHAT_MODEL=gpt-4.1-mini
+export AEGISFLOW_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
-The API defaults to `http://localhost:6872`.
+Optional runtime variables:
 
-### 4. Generate web API types and start the console
+```bash
+export AEGISFLOW_MCP_SSE_URL=http://127.0.0.1:8090/sse
+export AEGISFLOW_MILVUS_ADDR=127.0.0.1:19530
+```
+
+## Run the Services
+
+Start the MCP server:
+
+```bash
+npm run dev:mcp
+```
+
+Start the API:
+
+```bash
+npm run dev:api
+```
+
+Start the web console:
 
 ```bash
 cd apps/web
@@ -53,16 +76,20 @@ npm run generate:api
 npm run dev
 ```
 
-The web console defaults to `http://localhost:5173`.
+The Vite dev server listens on `0.0.0.0:5173`, so you can open it with `http://<your-ip>:5173`.
+By default the web client sends API requests to `http://<current-host>:6872`.
+
+## Main Demo Flows
+
+1. Upload a runbook document and create a knowledge indexing job.
+2. Create a chat session and run a Chat ReAct flow.
+3. Create an ops session and run the supervisor workflow.
+4. Approve and resume an interrupted ops run from the console.
+5. Open the MCP tool catalog and inspect the discovered tool schemas.
 
 ## Notes
 
-- The MVP keeps the AI workflow deterministic so the demo runs locally without external model keys.
-- Tooling interfaces are already separated so the current mock providers can be replaced by Eino-based model flows and MCP tools later.
-- The uploaded documents and runtime records are stored in MySQL; chunk scoring uses a lightweight built-in tokenizer suitable for a demo environment.
+- The API can start without model credentials, but chat, ops, and knowledge indexing will fail until the OpenAI-compatible variables are provided.
+- The MCP tools are real protocol tools served by `apps/mcp`, but their data sources still use local demo data for safe local walkthroughs.
 - The repository uses the MIT license.
 
-## Git Hygiene
-
-- Do not commit `node_modules`, local uploads, front-end build artifacts, TypeScript build info files, or editor-specific settings.
-- Regenerate web API types with `npm --workspace apps/web run generate:api` after changing `openapi/openapi.yaml`.
