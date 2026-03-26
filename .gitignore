@@ -24,6 +24,7 @@ apps/web/node_modules
 apps/web/*.tsbuildinfo
 apps/web/*.js
 apps/web/*.d.ts
+apps/mcp/aegisflow-mcp
 
 docs/images/
 docs/resume/

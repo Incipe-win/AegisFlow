@@ -9,13 +9,11 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 
-	"aegisflow-api/internal/agent"
 	"aegisflow-api/internal/controller"
-	"aegisflow-api/internal/model"
+	"aegisflow-api/internal/platform"
 	"aegisflow-api/internal/repository"
-	"aegisflow-api/internal/service"
+	"aegisflow-api/internal/runtime"
 	"aegisflow-api/internal/store"
-	"aegisflow-api/internal/tool"
 )
 
 func main() {
@@ -27,18 +25,8 @@ func main() {
 	if err := store.Bootstrap(ctx, repo, seedDir, uploadDir); err != nil {
 		panic(err)
 	}
-
-	app := service.NewApp(
-		repo,
-		agent.NewRetriever(repo),
-		agent.NewChatAgent(),
-		agent.NewOpsAgent(),
-		tool.NewMockProvider(),
-		uploadDir,
-	)
-
-	if _, err := app.IndexKnowledge(ctx, model.KnowledgeIndexRequest{}); err != nil {
-		g.Log().Warningf(ctx, "initial knowledge indexing failed: %+v", err)
+	if err := store.EnsurePlatformSchema(ctx, repo, seedDir); err != nil {
+		panic(err)
 	}
 
 	server := g.Server()
@@ -49,7 +37,9 @@ func main() {
 		r.Middleware.Next()
 	})
 
-	controller.RegisterRoutes(server, app)
+	runtimeConfig := runtime.LoadConfig()
+	platformService := platform.NewService(repo, runtime.NewDependencies(runtimeConfig, repo), uploadDir)
+	controller.RegisterPlatformRoutes(server, platformService)
 	server.Run()
 }
 
