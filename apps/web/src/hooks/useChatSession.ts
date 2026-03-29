@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   createSession,
   runChat,
@@ -18,6 +18,24 @@ export interface ChatSession extends Session {
   messages: ChatMessage[];
   lastMessage?: string;
   messageCount: number;
+}
+
+const STORAGE_KEY = "aegisflow_chat_sessions";
+
+function hydrateMessages(messages: any[]): ChatMessage[] {
+  if (!Array.isArray(messages)) return [];
+  return messages.map(msg => ({
+    ...msg,
+    timestamp: new Date(msg.timestamp)
+  }));
+}
+
+function hydrateSessions(sessions: any[]): ChatSession[] {
+  if (!Array.isArray(sessions)) return [];
+  return sessions.map(session => ({
+    ...session,
+    messages: hydrateMessages(session.messages)
+  }));
 }
 
 // 将API事件转换为聊天消息
@@ -62,11 +80,57 @@ function createUserMessage(content: string, files?: File[]): ChatMessage {
 
 export function useChatSession() {
   // 会话状态
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        return hydrateSessions(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error("Failed to load sessions", e);
+    }
+    return [];
+  });
+
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY + "_current");
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      const currentId = localStorage.getItem(STORAGE_KEY + "_current");
+      if (stored && currentId) {
+        const parsed: ChatSession[] = hydrateSessions(JSON.parse(stored));
+        const current = parsed.find(s => s.id === currentId);
+        if (current) return current.messages;
+      }
+    } catch (e) {
+      console.error("Failed to load messages", e);
+    }
+    return [];
+  });
+
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 自动保存会话状态到本地存储
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  }, [sessions]);
+
+  // 自动保存当前选择的会话
+  useEffect(() => {
+    if (currentSessionId) {
+      localStorage.setItem(STORAGE_KEY + "_current", currentSessionId);
+    } else {
+      localStorage.removeItem(STORAGE_KEY + "_current");
+    }
+  }, [currentSessionId]);
 
   // 当前运行的引用
   const currentRunId = useRef<string | null>(null);
@@ -338,6 +402,19 @@ export function useChatSession() {
         if (lastIndex >= 0 && newMessages[lastIndex].id === uploadMessage.id) {
           newMessages[lastIndex] = successMessage;
         }
+
+        // Sync to sessions
+        setSessions(prevSessions => prevSessions.map(session => {
+          if (session.id === currentSessionId) {
+            return {
+              ...session,
+              messages: newMessages,
+              messageCount: newMessages.length,
+            };
+          }
+          return session;
+        }));
+
         return newMessages;
       });
 
@@ -353,10 +430,26 @@ export function useChatSession() {
         timestamp: new Date(),
       };
 
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => {
+        const newMessages = [...prev, errorMessage];
+
+        // Sync to sessions
+        setSessions(prevSessions => prevSessions.map(session => {
+          if (session.id === currentSessionId) {
+            return {
+              ...session,
+              messages: newMessages,
+              messageCount: newMessages.length,
+            };
+          }
+          return session;
+        }));
+
+        return newMessages;
+      });
       throw err;
     }
-  }, []);
+  }, [currentSessionId]);
 
   // 添加消息到当前会话
   const addMessage = useCallback((message: ChatMessage) => {
