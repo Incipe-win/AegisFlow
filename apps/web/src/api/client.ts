@@ -31,10 +31,29 @@ export const apiClient = createClient<paths>({
   baseUrl: apiBaseUrl,
 });
 
+function extractApiErrorMessage(error: unknown): string | null {
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+
+  if ("error" in error && typeof error.error === "string" && error.error.trim()) {
+    return error.error.trim();
+  }
+  if ("message" in error && typeof error.message === "string" && error.message.trim() && error.message !== "ERROR") {
+    return error.message.trim();
+  }
+  if ("data" in error) {
+    return extractApiErrorMessage(error.data);
+  }
+
+  return null;
+}
+
 async function ensureData<T>(promise: Promise<{ data?: T; error?: unknown }>, message: string) {
   const { data, error } = await promise;
   if (error || !data) {
-    throw new Error(message);
+    const detail = extractApiErrorMessage(error);
+    throw new Error(detail ? `${message}: ${detail}` : message);
   }
   return data;
 }
@@ -117,4 +136,3 @@ export async function uploadKnowledgeDocument(file: File) {
     data: KnowledgeDocument;
   };
 }
-

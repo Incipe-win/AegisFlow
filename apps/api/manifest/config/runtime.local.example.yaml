@@ -1,0 +1,14 @@
+runtime:
+  openai:
+    baseUrl: "https://your-openai-compatible-endpoint/v1"
+    apiKey: "replace-with-your-api-key"
+    chatModel: "gpt-4.1-mini"
+    embeddingModel: "text-embedding-3-small"
+  milvus:
+    addr: "127.0.0.1:19530"
+    username: ""
+    password: ""
+    collection: "aegisflow_knowledge"
+  mcp:
+    sseUrl: "http://127.0.0.1:8090/sse"
+

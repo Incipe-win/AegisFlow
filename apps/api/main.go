@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	_ "github.com/gogf/gf/contrib/drivers/mysql/v2"
@@ -17,6 +18,8 @@ import (
 )
 
 func main() {
+	ensureLocalConfigOverride()
+
 	ctx := context.Background()
 	repo := repository.New(g.DB())
 	uploadDir := envOr("AEGISFLOW_UPLOAD_DIR", "resource/uploads")
@@ -41,6 +44,17 @@ func main() {
 	platformService := platform.NewService(repo, runtime.NewDependencies(runtimeConfig, repo), uploadDir)
 	controller.RegisterPlatformRoutes(server, platformService)
 	server.Run()
+}
+
+func ensureLocalConfigOverride() {
+	if os.Getenv("GF_GCFG_FILE") != "" {
+		return
+	}
+
+	const localConfigName = "config.local.yaml"
+	if _, err := os.Stat(filepath.Join("manifest", "config", localConfigName)); err == nil {
+		_ = os.Setenv("GF_GCFG_FILE", localConfigName)
+	}
 }
 
 func envOr(key string, fallback string) string {

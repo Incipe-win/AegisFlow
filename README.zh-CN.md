@@ -36,48 +36,111 @@ docker compose up -d mysql etcd minio milvus
 - MinIO API：`127.0.0.1:9000`
 - MinIO Console：`127.0.0.1:9001`
 
-## 必需环境变量
+## 运行时配置
 
-如果要真正跑通聊天、运维和知识索引，请先配置 OpenAI-compatible 模型参数：
+现在除了环境变量以外，API 也支持通过配置文件读取模型和运行参数。
+
+仓库内默认配置文件：
+
+- `apps/api/manifest/config/config.yaml`
+- `apps/api/manifest/config/runtime.yaml`
+
+本地覆盖模板：
+
+- `apps/api/manifest/config/config.local.example.yaml`
+- `apps/api/manifest/config/runtime.local.example.yaml`
+
+推荐做法：
+
+1. 复制 `apps/api/manifest/config/config.local.example.yaml`
+2. 重命名为 `apps/api/manifest/config/config.local.yaml`
+3. 按你的本机 MySQL 端口修改数据库连接
+4. 复制 `apps/api/manifest/config/runtime.local.example.yaml`
+5. 重命名为 `apps/api/manifest/config/runtime.local.yaml`
+6. 在这个本地文件里填写模型地址和密钥
+7. 环境变量只在临时覆盖或 CI 场景下使用
+
+示例：
+
+```bash
+cp apps/api/manifest/config/config.local.example.yaml apps/api/manifest/config/config.local.yaml
+cp apps/api/manifest/config/runtime.local.example.yaml apps/api/manifest/config/runtime.local.yaml
+```
+
+加载顺序：
+
+1. GoFrame 基础配置默认读取 `manifest/config/config.yaml`
+2. 如果存在 `manifest/config/config.local.yaml` 且没有显式设置 `GF_GCFG_FILE`，API 会自动优先使用它
+3. 如果显式设置了 `GF_GCFG_FILE`，则以该环境变量为准，例如 Docker Compose 中的 `config.compose.yaml`
+4. 运行时模型配置会继续按 `manifest/config/runtime.yaml` -> `manifest/config/runtime.local.yaml` -> 同名 `AEGISFLOW_*` 环境变量 的顺序覆盖
+
+## 可选环境变量覆盖
+
+如果要临时覆盖配置文件里的值，仍然可以使用环境变量：
 
 ```bash
 export AEGISFLOW_OPENAI_API_KEY=your_key
 export AEGISFLOW_OPENAI_BASE_URL=https://your-openai-compatible-endpoint/v1
 export AEGISFLOW_CHAT_MODEL=gpt-4.1-mini
 export AEGISFLOW_EMBEDDING_MODEL=text-embedding-3-small
-```
-
-可选环境变量：
-
-```bash
 export AEGISFLOW_MCP_SSE_URL=http://127.0.0.1:8090/sse
 export AEGISFLOW_MILVUS_ADDR=127.0.0.1:19530
 ```
 
 ## 启动方式
 
-启动 MCP Server：
+现在推荐使用 Docker Compose 一键拉起整个开发环境：
 
 ```bash
-npm run dev:mcp
+docker compose up
 ```
 
-启动 API：
+或者用 npm 别名：
 
 ```bash
-npm run dev:api
-```
-
-启动前端：
-
-```bash
-cd apps/web
-npm run generate:api
 npm run dev
 ```
 
+这会一次性启动：
+
+- `mysql`
+- `etcd`
+- `minio`
+- `milvus`
+- `apps/mcp`
+- `apps/api`
+- `apps/web`
+
+其中：
+
+- `apps/mcp` 和 `apps/api` 在容器内通过 `air` 实现 Go 热重载
+- `apps/web` 在容器内通过 Vite 实现前端热更新
+- 前端容器启动时会自动重新生成 OpenAPI 类型
+
 前端开发服务器默认监听 `0.0.0.0:5173`，可以直接通过 `http://<你的IP>:5173` 访问。
 前端默认会把 API 请求发到 `http://<当前访问主机>:6872`。
+
+停止整套环境：
+
+```bash
+npm run dev:down
+```
+
+如果你仍然想在宿主机直接跑开发服务，也保留了本机模式：
+
+```bash
+npm run dev:host
+```
+
+如果你在宿主机模式下放了 `apps/api/manifest/config/config.local.yaml`，`npm run dev:api` 会自动读取它，不需要再手动设置 `GF_GCFG_FILE`。
+
+以及单独服务模式：
+
+```bash
+npm run dev:mcp
+npm run dev:api
+npm run dev:web
+```
 
 ## 建议演示顺序
 
@@ -89,7 +152,6 @@ npm run dev
 
 ## 说明
 
-- API 即使没有模型密钥也能启动，但 Chat、Ops 和知识索引会在真正执行时失败。
+- API 即使没有模型密钥也能启动，但 Chat、Ops 和知识索引会在真正执行时失败；请在 `runtime.local.yaml` 或环境变量里补齐模型配置。
 - MCP 工具已经是真实协议工具，但其数据源目前仍然是本地演示数据，便于本地安全演示。
 - 项目使用 MIT License。
-

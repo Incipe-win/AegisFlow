@@ -61,8 +61,73 @@ services:
       - etcd
       - minio
 
+  mcp:
+    image: golang:1.25
+    container_name: aegisflow-mcp-dev
+    working_dir: /workspace/apps/mcp
+    command: ["bash", "/workspace/scripts/run-go-hot.sh", "apps/mcp", "apps/mcp/.air.toml"]
+    environment:
+      GOPROXY: ${GOPROXY:-https://goproxy.cn,direct}
+      GOSUMDB: ${GOSUMDB:-sum.golang.google.cn}
+    volumes:
+      - .:/workspace
+      - go_mod_cache:/go/pkg/mod
+      - go_build_cache:/root/.cache/go-build
+    ports:
+      - "8090:8090"
+    depends_on:
+      - mysql
+
+  api:
+    image: golang:1.25
+    container_name: aegisflow-api-dev
+    working_dir: /workspace/apps/api
+    command: ["bash", "/workspace/scripts/run-go-hot.sh", "apps/api", "apps/api/.air.toml"]
+    environment:
+      GOPROXY: ${GOPROXY:-https://goproxy.cn,direct}
+      GOSUMDB: ${GOSUMDB:-sum.golang.google.cn}
+      GF_GCFG_FILE: config.compose.yaml
+      AEGISFLOW_MCP_SSE_URL: http://mcp:8090/sse
+      AEGISFLOW_MILVUS_ADDR: milvus:19530
+      AEGISFLOW_OPENAI_BASE_URL: ${AEGISFLOW_OPENAI_BASE_URL:-}
+      AEGISFLOW_OPENAI_API_KEY: ${AEGISFLOW_OPENAI_API_KEY:-}
+      AEGISFLOW_CHAT_MODEL: ${AEGISFLOW_CHAT_MODEL:-}
+      AEGISFLOW_EMBEDDING_MODEL: ${AEGISFLOW_EMBEDDING_MODEL:-}
+    volumes:
+      - .:/workspace
+      - go_mod_cache:/go/pkg/mod
+      - go_build_cache:/root/.cache/go-build
+    ports:
+      - "6872:6872"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      milvus:
+        condition: service_started
+      mcp:
+        condition: service_started
+
+  web:
+    image: node:24
+    container_name: aegisflow-web-dev
+    working_dir: /workspace
+    command: ["bash", "-lc", "npm ci && npm run generate:api && npm run dev:web"]
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    volumes:
+      - .:/workspace
+      - node_modules_cache:/workspace/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      api:
+        condition: service_started
+
 volumes:
   mysql_data:
   etcd_data:
   minio_data:
   milvus_data:
+  go_mod_cache:
+  go_build_cache:
+  node_modules_cache:

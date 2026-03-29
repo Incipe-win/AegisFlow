@@ -8,7 +8,11 @@
     "generate:api": "npm --workspace apps/web run generate:api",
     "dev:web": "npm --workspace apps/web run dev",
     "build:web": "npm --workspace apps/web run build",
-    "dev:mcp": "cd apps/mcp && go run .",
-    "dev:api": "cd apps/api && go run ."
+    "dev:infra": "docker compose up -d mysql etcd minio milvus",
+    "dev:mcp": "bash scripts/run-go-hot.sh apps/mcp apps/mcp/.air.toml",
+    "dev:api": "bash scripts/run-go-hot.sh apps/api apps/api/.air.toml",
+    "dev:host": "bash scripts/dev.sh",
+    "dev": "docker compose up --remove-orphans",
+    "dev:down": "docker compose down"
   }
 }

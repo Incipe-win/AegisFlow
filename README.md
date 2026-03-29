@@ -36,48 +36,109 @@ Ports:
 - MinIO API: `127.0.0.1:9000`
 - MinIO Console: `127.0.0.1:9001`
 
-## Required Environment Variables
+## Runtime Configuration
 
-Set the model access variables before running the API if you want chat, ops, or indexing to work end-to-end:
+The API now supports file-based runtime configuration in addition to environment variables.
+
+Tracked default config:
+
+- `apps/api/manifest/config/config.yaml`
+- `apps/api/manifest/config/runtime.yaml`
+
+Local override template:
+
+- `apps/api/manifest/config/config.local.example.yaml`
+- `apps/api/manifest/config/runtime.local.example.yaml`
+
+Recommended setup:
+
+1. Copy `apps/api/manifest/config/config.local.example.yaml` to `apps/api/manifest/config/config.local.yaml`
+2. Adjust the database DSN for your local MySQL port if needed
+3. Copy `apps/api/manifest/config/runtime.local.example.yaml` to `apps/api/manifest/config/runtime.local.yaml`
+4. Fill in your OpenAI-compatible endpoint and key
+5. Keep using environment variables only when you want to override the file locally or in CI
+
+Example:
+
+```bash
+cp apps/api/manifest/config/config.local.example.yaml apps/api/manifest/config/config.local.yaml
+cp apps/api/manifest/config/runtime.local.example.yaml apps/api/manifest/config/runtime.local.yaml
+```
+
+The loader reads:
+
+1. GoFrame base config defaults to `manifest/config/config.yaml`
+2. If `manifest/config/config.local.yaml` exists and `GF_GCFG_FILE` is not set, the API automatically prefers it
+3. If `GF_GCFG_FILE` is explicitly set, that value still wins, for example Docker Compose uses `config.compose.yaml`
+4. Runtime model config then applies overrides in this order: `manifest/config/runtime.yaml` -> `manifest/config/runtime.local.yaml` -> environment variables with the same `AEGISFLOW_*` names
+
+## Optional Environment Overrides
+
+You can still override file config with environment variables:
 
 ```bash
 export AEGISFLOW_OPENAI_API_KEY=your_key
 export AEGISFLOW_OPENAI_BASE_URL=https://your-openai-compatible-endpoint/v1
 export AEGISFLOW_CHAT_MODEL=gpt-4.1-mini
 export AEGISFLOW_EMBEDDING_MODEL=text-embedding-3-small
-```
-
-Optional runtime variables:
-
-```bash
 export AEGISFLOW_MCP_SSE_URL=http://127.0.0.1:8090/sse
 export AEGISFLOW_MILVUS_ADDR=127.0.0.1:19530
 ```
 
 ## Run the Services
 
-Start the MCP server:
+The recommended development entrypoint is now Docker Compose:
 
 ```bash
-npm run dev:mcp
+docker compose up
 ```
 
-Start the API:
+Or through the npm alias:
 
 ```bash
-npm run dev:api
-```
-
-Start the web console:
-
-```bash
-cd apps/web
-npm run generate:api
 npm run dev
 ```
 
+This brings up the whole stack in one shot:
+
+- `mysql`
+- `etcd`
+- `minio`
+- `milvus`
+- `apps/mcp`
+- `apps/api`
+- `apps/web`
+
+Inside the containers:
+
+- `apps/mcp` and `apps/api` use `air` for Go hot reload
+- `apps/web` uses Vite for frontend hot refresh
+- the web container regenerates OpenAPI types before starting
+
 The Vite dev server listens on `0.0.0.0:5173`, so you can open it with `http://<your-ip>:5173`.
 By default the web client sends API requests to `http://<current-host>:6872`.
+
+To stop the stack:
+
+```bash
+npm run dev:down
+```
+
+If you still want to run the services directly on the host machine, the host-mode workflow is still available:
+
+```bash
+npm run dev:host
+```
+
+When you keep `apps/api/manifest/config/config.local.yaml` in place for host mode, `npm run dev:api` picks it up automatically without needing a manual `GF_GCFG_FILE=...` prefix.
+
+You can also run individual services:
+
+```bash
+npm run dev:mcp
+npm run dev:api
+npm run dev:web
+```
 
 ## Main Demo Flows
 
@@ -89,7 +150,6 @@ By default the web client sends API requests to `http://<current-host>:6872`.
 
 ## Notes
 
-- The API can start without model credentials, but chat, ops, and knowledge indexing will fail until the OpenAI-compatible variables are provided.
+- The API can start without model credentials, but chat, ops, and knowledge indexing will fail until the OpenAI-compatible settings are present in `runtime.local.yaml` or environment variables.
 - The MCP tools are real protocol tools served by `apps/mcp`, but their data sources still use local demo data for safe local walkthroughs.
 - The repository uses the MIT license.
-

@@ -16,9 +16,12 @@ pnpm-debug.log*
 
 apps/api/.cache
 apps/api/tmp
+apps/api/manifest/config/config.local.yaml
+apps/api/manifest/config/runtime.local.yaml
 apps/api/resource/uploads/*
 !apps/api/resource/uploads/.gitkeep
 
+apps/mcp/tmp
 apps/web/dist
 apps/web/node_modules
 apps/web/*.tsbuildinfo
@@ -28,3 +31,5 @@ apps/mcp/aegisflow-mcp
 
 docs/images/
 docs/resume/
+
+.claude/

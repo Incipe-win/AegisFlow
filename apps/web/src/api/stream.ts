@@ -37,10 +37,25 @@ export async function streamChatRun(
     for (const frame of frames) {
       const parsed = parseFrame(frame);
       if (parsed) {
+        if (parsed.event === "error") {
+          throw new Error(extractStreamError(parsed.data));
+        }
         onFrame(parsed);
       }
     }
   }
+}
+
+function extractStreamError(data: string) {
+  try {
+    const parsed = JSON.parse(data) as { message?: string };
+    if (parsed.message?.trim()) {
+      return parsed.message;
+    }
+  } catch {
+    // Ignore JSON parsing failures and fall back to raw text.
+  }
+  return data.trim() || "流式聊天失败";
 }
 
 function parseFrame(frame: string): StreamFrame | null {
