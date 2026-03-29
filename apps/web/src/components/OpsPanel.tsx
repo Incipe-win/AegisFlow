@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { runOps } from "../api/client";
+import { useState, useEffect } from "react";
+import { runOps, createSession, getRun, type Run } from "../api/client";
 
 interface OpsPanelProps {
   onClose: () => void;
@@ -11,6 +11,32 @@ export function OpsPanel({ onClose }: OpsPanelProps) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
+  const [runDetail, setRunDetail] = useState<Run | null>(null);
+
+  useEffect(() => {
+    if (!currentRunId) return;
+
+    let intervalId: ReturnType<typeof setInterval>;
+
+    const fetchRunDetails = async () => {
+      try {
+        const response = await getRun(currentRunId);
+        setRunDetail(response.data);
+        if (response.data.status === "completed" || response.data.status === "failed") {
+          clearInterval(intervalId);
+        }
+      } catch (err) {
+        console.error("Failed to get run details", err);
+      }
+    };
+
+    fetchRunDetails();
+    intervalId = setInterval(fetchRunDetails, 2000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [currentRunId]);
 
   // 预定义运维查询示例
   const exampleQueries = [
@@ -47,11 +73,14 @@ export function OpsPanel({ onClose }: OpsPanelProps) {
     setMessage(null);
 
     try {
-      // 如果没有会话ID，先创建一个（这里简化处理，实际应该调用创建会话API）
+      // 如果没有会话ID，先创建一个
       let targetSessionId = sessionId;
       if (!targetSessionId) {
-        // 在实际应用中，这里应该调用 createSession API
-        targetSessionId = `ops-session-${Date.now()}`;
+        const sessionResponse = await createSession({
+          title: "运维分析",
+          mode: "ops",
+        });
+        targetSessionId = sessionResponse.data.id;
         setSessionId(targetSessionId);
       }
 
@@ -87,10 +116,18 @@ export function OpsPanel({ onClose }: OpsPanelProps) {
   };
 
   // 生成新会话ID
-  const generateNewSession = () => {
-    const newSessionId = `ops-session-${Date.now()}`;
-    setSessionId(newSessionId);
-    setMessage(`已创建新会话: ${newSessionId}`);
+  const generateNewSession = async () => {
+    try {
+      const sessionResponse = await createSession({
+        title: "新运维分析会话",
+        mode: "ops",
+      });
+      const newSessionId = sessionResponse.data.id;
+      setSessionId(newSessionId);
+      setMessage(`已创建新会话: ${newSessionId}`);
+    } catch (err) {
+      setMessage(`创建新会话失败: ${err instanceof Error ? err.message : "未知错误"}`);
+    }
   };
 
   return (
@@ -255,22 +292,21 @@ export function OpsPanel({ onClose }: OpsPanelProps) {
               background: message.includes("失败")
                 ? "rgba(239, 68, 68, 0.1)"
                 : message.includes("成功") || message.includes("已启动")
-                ? "rgba(16, 185, 129, 0.1)"
-                : "rgba(255, 255, 255, 0.05)",
-              border: `1px solid ${
-                message.includes("失败")
+                  ? "rgba(16, 185, 129, 0.1)"
+                  : "rgba(255, 255, 255, 0.05)",
+              border: `1px solid ${message.includes("失败")
                   ? "rgba(239, 68, 68, 0.3)"
                   : message.includes("成功") || message.includes("已启动")
-                  ? "rgba(16, 185, 129, 0.3)"
-                  : "rgba(255, 255, 255, 0.08)"
-              }`,
+                    ? "rgba(16, 185, 129, 0.3)"
+                    : "rgba(255, 255, 255, 0.08)"
+                }`,
               borderRadius: "12px",
               fontSize: "0.9rem",
               color: message.includes("失败")
                 ? "#ef4444"
                 : message.includes("成功") || message.includes("已启动")
-                ? "#10b981"
-                : "rgba(244, 239, 232, 0.8)",
+                  ? "#10b981"
+                  : "rgba(244, 239, 232, 0.8)",
               marginBottom: "20px",
             }}
           >
@@ -280,6 +316,36 @@ export function OpsPanel({ onClose }: OpsPanelProps) {
                 运行 ID: <code style={{ background: "rgba(0, 0, 0, 0.2)", padding: "2px 6px", borderRadius: "4px" }}>
                   {currentRunId}
                 </code>
+              </div>
+            )}
+            {runDetail && (
+              <div style={{ marginTop: "12px", padding: "12px", background: "rgba(0, 0, 0, 0.2)", borderRadius: "8px", color: "#f4efe8" }}>
+                <div style={{ marginBottom: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <strong style={{ fontSize: "0.9rem" }}>分析结果</strong>
+                  <span style={{
+                    padding: "2px 8px",
+                    borderRadius: "12px",
+                    fontSize: "0.75rem",
+                    background: runDetail.status === "completed" ? "rgba(97, 209, 190, 0.2)" :
+                      runDetail.status === "failed" ? "rgba(239, 131, 84, 0.2)" :
+                        "rgba(255, 255, 255, 0.1)",
+                    color: runDetail.status === "completed" ? "#61d1be" :
+                      runDetail.status === "failed" ? "#ef8354" :
+                        "#f4efe8"
+                  }}>
+                    {runDetail.status === "running" ? "运行中..." :
+                      runDetail.status === "completed" ? "已完成" :
+                        runDetail.status === "failed" ? "失败" : runDetail.status}
+                  </span>
+                </div>
+                <div style={{ fontSize: "0.85rem", whiteSpace: "pre-wrap", lineHeight: 1.5, color: "rgba(244, 239, 232, 0.9)" }}>
+                  {runDetail.summary || "生成中..."}
+                </div>
+                {runDetail.errorMessage && (
+                  <div style={{ marginTop: "8px", color: "#ef8354", fontSize: "0.8rem", wordBreak: "break-word" }}>
+                    错误: {runDetail.errorMessage}
+                  </div>
+                )}
               </div>
             )}
           </div>
