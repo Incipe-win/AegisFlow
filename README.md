@@ -1,155 +1,104 @@
 # AegisFlow
 
-English | [简体中文](./README.zh-CN.md)
+[English](./README.md) | [简体中文](./README.zh-CN.md)
 
-AegisFlow is a Go-first intelligent OnCall platform that now uses the real stack behind the project narrative: `GoFrame`, `Eino`, `Milvus-based RAG`, `ReAct`, `Plan-Execute-Replan`, `Multi-Agent`, and `MCP`.
+**AegisFlow** is an intelligent, Go-first OnCall and Site Reliability Engineering (SRE) platform. It leverages large language models and modern agent orchestration to automate incident response, streamline operations, and enhance engineering productivity.
+
+Built on a robust technology stack featuring `GoFrame`, `Eino`, `Milvus`, and the `Model Context Protocol (MCP)`, AegisFlow implements advanced AI paradigms including RAG (Retrieval-Augmented Generation), ReAct workflows, Plan-Execute-Replan cycles, and Multi-Agent Supervisor coordination.
+
+---
+
+## Key Features
+
+- **Intelligent Chat Operations**: Interact with your infrastructure through a ReAct-powered chat agent capable of real tool invocation via MCP.
+- **Automated Ops Workflows (Plan-Execute)**: Autonomous diagnostic workflows utilizing the `adk/prebuilt/planexecute` to solve complex operational issues.
+- **Multi-Agent Supervisor**: Coordinate multiple specialized agents for runbook interpretation, execution, and reporting.
+- **RAG-Powered Knowledge Base**: Upload and index SRE runbooks using OpenAI-compatible embeddings and Milvus for accurate context retrieval.
+- **Human-in-the-Loop**: Pause, review, and approve critical operational runs via the React-based console before execution.
+- **Extensible Tooling with MCP**: Seamless integration with existing tools using a standalone Model Context Protocol (MCP) server over SSE.
 
 ## Architecture
 
-- `apps/api`: GoFrame API service, DAO-style persistence, run/session/event APIs, SSE streaming, and Eino agent orchestration.
-- `apps/mcp`: standalone Go MCP server built with `mark3labs/mcp-go`, exposing real protocol tools over SSE.
-- `apps/web`: React + Vite console for session creation, chat runs, ops runs, resume flow, event timelines, and MCP tool catalog.
-- `openapi/openapi.yaml`: the `/api/v2` contract-first API definition.
+AegisFlow adopts a decoupled, microservice-inspired architecture:
 
-## Real Stack Coverage
+- **`apps/api`**: The core API service built with GoFrame. Handles session and event management, DAO-style database interactions, SSE streaming, and orchestrates agents using Eino.
+- **`apps/mcp`**: A standalone Go MCP server (built with `mark3labs/mcp-go`) that exposes real operational tools via Server-Sent Events (SSE).
+- **`apps/web`**: A modern React + Vite frontend console providing an intuitive interface for chatting, operational run management, approval flows, event timelines, and MCP tool cataloging.
+- **`openapi`**: Contract-first API definitions (`/api/v2`) ensuring consistency between backend and frontend.
 
-- `GoFrame`: HTTP server, routing, config, and MySQL DAO access.
-- `Eino`: ADK runner, chat agents, supervisor orchestration, and plan-execute-replan workflow.
-- `RAG`: OpenAI-compatible embeddings + Milvus indexer/retriever.
-- `ReAct`: chat agent with real tool calling through MCP tools.
-- `Plan-Executor`: ops diagnosis workflow using `adk/prebuilt/planexecute`.
-- `Multi-Agent`: ops supervisor coordinating runbook, execution, and reporting specialists.
-- `MCP`: standalone SSE MCP server plus Eino MCP tool wrapper on the API side.
+## Tech Stack
 
-## Local Dependencies
+- **Backend**: Go Application Framework (GoFrame), Eino (Agent Orchestration)
+- **Frontend**: React, TypeScript, Vite, Tailwind CSS
+- **Vector Database**: Milvus (for RAG)
+- **Relational Database**: MySQL
+- **Storage**: MinIO
+- **AI/Agents**: OpenAI Connectors, ReAct, Multi-Agent Supervisor, Model Context Protocol (MCP)
 
-Start MySQL and Milvus:
+## Getting Started
+
+### Prerequisites
+
+Ensure you have [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/) installed on your system. Node.js and npm are required for frontend package management and start scripts.
+
+### 1. Start Infrastructure Dependencies
+
+Bring up MySQL, etcd, MinIO, and Milvus:
 
 ```bash
 docker compose up -d mysql etcd minio milvus
 ```
 
-Ports:
+*Port Bindings:*
+- **MySQL**: `127.0.0.1:3307`
+- **Milvus**: `127.0.0.1:19530`
+- **MinIO API/Console**: `127.0.0.1:9000` / `127.0.0.1:9001`
 
-- MySQL: `127.0.0.1:3307`
-- Milvus: `127.0.0.1:19530`
-- MinIO API: `127.0.0.1:9000`
-- MinIO Console: `127.0.0.1:9001`
+### 2. Configure the Environment
 
-## Runtime Configuration
+AegisFlow supports both file-based configurations and environment variable overrides.
 
-The API now supports file-based runtime configuration in addition to environment variables.
+1. **Copy configuration templates:**
+   ```bash
+   cp apps/api/manifest/config/config.local.example.yaml apps/api/manifest/config/config.local.yaml
+   cp apps/api/manifest/config/runtime.local.example.yaml apps/api/manifest/config/runtime.local.yaml
+   ```
+2. **Setup AI Models:** Edit `apps/api/manifest/config/runtime.local.yaml` and provide your OpenAI-compatible endpoint and API keys.
+3. *Optional:* Adjust the database DSN in `config.local.yaml` if your MySQL port differs.
 
-Tracked default config:
+*Note: Environment variables (e.g., `AEGISFLOW_OPENAI_API_KEY`) can still be used for temporary overrides or in CI environments.*
 
-- `apps/api/manifest/config/config.yaml`
-- `apps/api/manifest/config/runtime.yaml`
+### 3. Run the Application
 
-Local override template:
-
-- `apps/api/manifest/config/config.local.example.yaml`
-- `apps/api/manifest/config/runtime.local.example.yaml`
-
-Recommended setup:
-
-1. Copy `apps/api/manifest/config/config.local.example.yaml` to `apps/api/manifest/config/config.local.yaml`
-2. Adjust the database DSN for your local MySQL port if needed
-3. Copy `apps/api/manifest/config/runtime.local.example.yaml` to `apps/api/manifest/config/runtime.local.yaml`
-4. Fill in your OpenAI-compatible endpoint and key
-5. Keep using environment variables only when you want to override the file locally or in CI
-
-Example:
-
-```bash
-cp apps/api/manifest/config/config.local.example.yaml apps/api/manifest/config/config.local.yaml
-cp apps/api/manifest/config/runtime.local.example.yaml apps/api/manifest/config/runtime.local.yaml
-```
-
-The loader reads:
-
-1. GoFrame base config defaults to `manifest/config/config.yaml`
-2. If `manifest/config/config.local.yaml` exists and `GF_GCFG_FILE` is not set, the API automatically prefers it
-3. If `GF_GCFG_FILE` is explicitly set, that value still wins, for example Docker Compose uses `config.compose.yaml`
-4. Runtime model config then applies overrides in this order: `manifest/config/runtime.yaml` -> `manifest/config/runtime.local.yaml` -> environment variables with the same `AEGISFLOW_*` names
-
-## Optional Environment Overrides
-
-You can still override file config with environment variables:
-
-```bash
-export AEGISFLOW_OPENAI_API_KEY=your_key
-export AEGISFLOW_OPENAI_BASE_URL=https://your-openai-compatible-endpoint/v1
-export AEGISFLOW_CHAT_MODEL=gpt-4.1-mini
-export AEGISFLOW_EMBEDDING_MODEL=text-embedding-3-small
-export AEGISFLOW_MCP_SSE_URL=http://127.0.0.1:8090/sse
-export AEGISFLOW_MILVUS_ADDR=127.0.0.1:19530
-```
-
-## Run the Services
-
-The recommended development entrypoint is now Docker Compose:
-
-```bash
-docker compose up
-```
-
-Or through the npm alias:
+The recommended method to start the entire development environment is via Docker Compose:
 
 ```bash
 npm run dev
+# or: docker compose up
 ```
 
-This brings up the whole stack in one shot:
+This command will start the infrastructure services alongside the `mcp`, `api`, and `web` containers. 
+- The Go backend (`mcp` and `api`) utilizes `air` for hot-reloading.
+- The React frontend uses Vite for HMR (Hot Module Replacement) and is accessible at `http://localhost:5173`.
 
-- `mysql`
-- `etcd`
-- `minio`
-- `milvus`
-- `apps/mcp`
-- `apps/api`
-- `apps/web`
-
-Inside the containers:
-
-- `apps/mcp` and `apps/api` use `air` for Go hot reload
-- `apps/web` uses Vite for frontend hot refresh
-- the web container regenerates OpenAPI types before starting
-
-The Vite dev server listens on `0.0.0.0:5173`, so you can open it with `http://<your-ip>:5173`.
-By default the web client sends API requests to `http://<current-host>:6872`.
-
-To stop the stack:
+To stop the development stack:
 
 ```bash
 npm run dev:down
 ```
 
-If you still want to run the services directly on the host machine, the host-mode workflow is still available:
+*(For running services natively on your host machine, you can use `npm run dev:host`, or start individual services with `npm run dev:api`, `npm run dev:web`, etc.)*
 
-```bash
-npm run dev:host
-```
+## Demo Workflow
 
-When you keep `apps/api/manifest/config/config.local.yaml` in place for host mode, `npm run dev:api` picks it up automatically without needing a manual `GF_GCFG_FILE=...` prefix.
+To experience AegisFlow's capabilities, follow this recommended sequence:
 
-You can also run individual services:
+1. **Knowledge Indexing**: Upload a mock runbook or documentation and trigger a knowledge indexing job.
+2. **Interactive Chat**: Create a Chat Session and ask infrastructure-related questions using the ReAct agent.
+3. **Automated Ops**: Start an Ops Session to run the supervisor diagnostic workflow.
+4. **Approval Flow**: Trigger a task that requires human intervention, and approve/resume it from the console.
+5. **Tool Discovery**: Navigate to the MCP Tool Catalog to inspect the available tools dynamically discovered via the protocol.
 
-```bash
-npm run dev:mcp
-npm run dev:api
-npm run dev:web
-```
+## License
 
-## Main Demo Flows
-
-1. Upload a runbook document and create a knowledge indexing job.
-2. Create a chat session and run a Chat ReAct flow.
-3. Create an ops session and run the supervisor workflow.
-4. Approve and resume an interrupted ops run from the console.
-5. Open the MCP tool catalog and inspect the discovered tool schemas.
-
-## Notes
-
-- The API can start without model credentials, but chat, ops, and knowledge indexing will fail until the OpenAI-compatible settings are present in `runtime.local.yaml` or environment variables.
-- The MCP tools are real protocol tools served by `apps/mcp`, but their data sources still use local demo data for safe local walkthroughs.
-- The repository uses the MIT license.
+This project is licensed under the MIT License.
