@@ -13,6 +13,7 @@ interface ChatHistoryProps {
   currentSessionId: string | null;
   onSelectSession: (sessionId: string) => void;
   onCreateNewSession: () => void | Promise<void>;
+  onDeleteSession?: (sessionId: string) => void;
 }
 
 export function ChatHistory({
@@ -20,6 +21,7 @@ export function ChatHistory({
   currentSessionId,
   onSelectSession,
   onCreateNewSession,
+  onDeleteSession,
 }: ChatHistoryProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -110,12 +112,13 @@ export function ChatHistory({
           </div>
         ) : (
           filteredSessions.map((session) => (
-            <button
-              type="button"
+            <div
               key={session.id}
               className={`session-item ${session.id === currentSessionId ? "active" : ""}`}
               onClick={() => onSelectSession(session.id)}
               title={session.title}
+              role="button"
+              tabIndex={0}
               aria-pressed={session.id === currentSessionId}
             >
               <div className="session-avatar">
@@ -127,7 +130,26 @@ export function ChatHistory({
               <div className="session-content">
                 <div className="session-title">
                   <span>{session.title}</span>
-                  <span className="message-count">{session.messageCount}</span>
+                  <div className="session-title-actions">
+                    <span className="message-count">{session.messageCount}</span>
+                    {onDeleteSession && (
+                      <button
+                        className="delete-session-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm("确定要删除这个对话吗？")) {
+                            onDeleteSession(session.id);
+                          }
+                        }}
+                        title="删除对话"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {session.lastMessage && (
@@ -140,7 +162,7 @@ export function ChatHistory({
                   <span className="session-time">{formatTime(session.timestamp)}</span>
                 </div>
               </div>
-            </button>
+            </div>
           ))
         )}
       </div>

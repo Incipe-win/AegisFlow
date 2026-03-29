@@ -78,6 +78,18 @@ export function useChatSession() {
   const startNewSession = useCallback(async (title?: string) => {
     try {
       setError(null);
+      
+      // 如果已经有空的对话，直接使用该对话
+      const emptySession = sessions.find(s => s.messageCount === 0 || (s.messages && s.messages.length === 0));
+      if (emptySession) {
+        if (currentSessionId !== emptySession.id) {
+          setCurrentSessionId(emptySession.id);
+          setMessages([]);
+          currentRunId.current = null;
+        }
+        return emptySession.id;
+      }
+
       const response = await createSession({
         title: title || `对话 ${new Date().toLocaleString("zh-CN")}`,
         mode: "chat",
@@ -99,7 +111,7 @@ export function useChatSession() {
       setError(err instanceof Error ? err.message : "创建会话失败");
       throw err;
     }
-  }, []);
+  }, [sessions, currentSessionId]);
 
   const ensureSessionId = useCallback(async () => {
     if (currentSessionId) {
@@ -367,6 +379,20 @@ export function useChatSession() {
     }
   }, [currentSessionId]);
 
+  // 删除对话
+  const deleteSession = useCallback((sessionId: string) => {
+    setSessions(prev => {
+      const remaining = prev.filter(s => s.id !== sessionId);
+      return remaining;
+    });
+
+    if (currentSessionId === sessionId) {
+      setCurrentSessionId(null);
+      setMessages([]);
+      currentRunId.current = null;
+    }
+  }, [currentSessionId]);
+
   // 加载现有会话（模拟初始数据）
   const loadInitialSessions = useCallback(async () => {
     // 这里可以添加从API加载现有会话的逻辑
@@ -399,6 +425,7 @@ export function useChatSession() {
     sendMessageDirect: sendMessage, // 直接模式
     startNewSession,
     switchSession,
+    deleteSession,
     uploadFile,
     loadInitialSessions,
     addMessage,

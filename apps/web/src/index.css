@@ -534,6 +534,35 @@ pre {
   text-overflow: ellipsis;
 }
 
+.session-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.delete-session-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 100, 100, 0.6);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.session-item:hover .delete-session-btn {
+  opacity: 1;
+}
+
+.delete-session-btn:hover {
+  background: rgba(255, 100, 100, 0.1);
+  color: rgba(255, 100, 100, 1);
+}
+
 .message-count {
   background: rgba(255, 255, 255, 0.1);
   color: rgba(244, 239, 232, 0.8);

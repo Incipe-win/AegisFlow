@@ -47,6 +47,7 @@ export function UnifiedWorkspacePage() {
     sendMessage,
     startNewSession,
     switchSession,
+    deleteSession,
     uploadFile,
     addMessage,
   } = useChatSession();
@@ -175,6 +176,7 @@ export function UnifiedWorkspacePage() {
             currentSessionId={currentSessionId}
             onSelectSession={switchSession}
             onCreateNewSession={handleCreateSession}
+            onDeleteSession={deleteSession}
           />
 
           <div className="quick-actions">
