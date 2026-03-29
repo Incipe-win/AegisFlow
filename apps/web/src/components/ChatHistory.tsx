@@ -12,7 +12,7 @@ interface ChatHistoryProps {
   sessions: ChatSession[];
   currentSessionId: string | null;
   onSelectSession: (sessionId: string) => void;
-  onCreateNewSession: () => void;
+  onCreateNewSession: () => void | Promise<void>;
 }
 
 export function ChatHistory({
@@ -22,6 +22,10 @@ export function ChatHistory({
   onCreateNewSession,
 }: ChatHistoryProps) {
   const [searchQuery, setSearchQuery] = useState("");
+
+  const handleCreateSession = () => {
+    void onCreateNewSession();
+  };
 
   // 过滤会话
   const filteredSessions = sessions.filter((session) =>
@@ -57,7 +61,7 @@ export function ChatHistory({
         <button
           type="button"
           className="new-session-button"
-          onClick={onCreateNewSession}
+          onClick={handleCreateSession}
           title="开始新对话"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -100,17 +104,19 @@ export function ChatHistory({
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
             <p>暂无对话记录</p>
-            <button type="button" onClick={onCreateNewSession}>
+            <button type="button" onClick={handleCreateSession}>
               开始第一个对话
             </button>
           </div>
         ) : (
           filteredSessions.map((session) => (
-            <div
+            <button
+              type="button"
               key={session.id}
               className={`session-item ${session.id === currentSessionId ? "active" : ""}`}
               onClick={() => onSelectSession(session.id)}
               title={session.title}
+              aria-pressed={session.id === currentSessionId}
             >
               <div className="session-avatar">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -134,7 +140,7 @@ export function ChatHistory({
                   <span className="session-time">{formatTime(session.timestamp)}</span>
                 </div>
               </div>
-            </div>
+            </button>
           ))
         )}
       </div>
