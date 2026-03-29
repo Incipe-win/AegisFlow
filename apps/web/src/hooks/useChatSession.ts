@@ -78,7 +78,7 @@ export function useChatSession() {
   const startNewSession = useCallback(async (title?: string) => {
     try {
       setError(null);
-      
+
       // 如果已经有空的对话，直接使用该对话
       const emptySession = sessions.find(s => s.messageCount === 0 || (s.messages && s.messages.length === 0));
       if (emptySession) {

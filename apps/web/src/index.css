@@ -1065,10 +1065,13 @@ pre {
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 0.4;
     transform: scale(0.8);
   }
+
   50% {
     opacity: 1;
     transform: scale(1);
@@ -1240,7 +1243,9 @@ pre {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .drop-overlay {
@@ -1330,6 +1335,7 @@ pre {
 }
 
 @media (max-width: 640px) {
+
   .workspace-sidebar,
   .workspace-main,
   .chat-messages,
@@ -1460,10 +1466,11 @@ body {
 
 .brand-block h1 {
   margin: 0;
-  font-size: clamp(2rem, 2.2vw, 2.65rem);
+  font-size: clamp(1.6rem, 2vw, 2.2rem);
   line-height: 1.04;
   letter-spacing: -0.04em;
   color: #fffaf3;
+  white-space: nowrap;
 }
 
 .brand-copy {
@@ -1610,11 +1617,13 @@ body {
 }
 
 .quick-action {
-  min-height: 92px;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 14px;
-  border-radius: 18px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+  white-space: nowrap;
+  padding: 12px 6px;
+  border-radius: 12px;
   box-shadow: none;
   background: rgba(255, 255, 255, 0.03);
 }
@@ -2031,6 +2040,7 @@ pre.raw-content {
 }
 
 @media (max-width: 720px) {
+
   .workspace-main,
   .workspace-sidebar {
     padding: 16px;
