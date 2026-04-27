@@ -25,6 +25,7 @@ func RegisterPlatformRoutes(server *ghttp.Server, service *platform.Service) {
 		group.POST("/runs/chat", handler.RunChat)
 		group.POST("/runs/chat/stream", handler.RunChatStream)
 		group.POST("/runs/ops", handler.RunOps)
+		group.POST("/runs/ops/stream", handler.RunOpsStream)
 		group.GET("/runs/{runId}", handler.GetRun)
 		group.GET("/runs/{runId}/events", handler.GetRunEvents)
 		group.POST("/runs/{runId}/resume", handler.ResumeRun)
@@ -96,6 +97,28 @@ func (h *PlatformController) RunOps(r *ghttp.Request) {
 		return
 	}
 	r.Response.WriteJson(model.APIRunResponse{Message: "OK", Data: run})
+}
+
+func (h *PlatformController) RunOpsStream(r *ghttp.Request) {
+	var req model.OpsRunRequest
+	if err := r.Parse(&req); err != nil {
+		writeError(r, http.StatusBadRequest, err)
+		return
+	}
+
+	r.Response.Header().Set("Content-Type", "text/event-stream")
+	r.Response.Header().Set("Cache-Control", "no-cache")
+	r.Response.Header().Set("Connection", "keep-alive")
+	r.Response.Header().Set("X-Accel-Buffering", "no")
+
+	run, err := h.service.RunOps(r.Context(), req, func(event model.RunEvent) {
+		writeSSEJSON(r, "run_event", event)
+	})
+	if err != nil {
+		writeSSEJSON(r, "error", map[string]any{"message": err.Error()})
+		return
+	}
+	writeSSEJSON(r, "done", run)
 }
 
 func (h *PlatformController) GetRun(r *ghttp.Request) {
@@ -195,4 +218,12 @@ func writeSSEJSON(r *ghttp.Request, event string, value any) {
 	r.Response.Writef("event: %s\n", event)
 	r.Response.Writef("data: %s\n\n", string(bytes))
 	r.Response.Flush()
+}
+
+func writeError(r *ghttp.Request, status int, err error) {
+	r.Response.WriteHeader(status)
+	r.Response.WriteJson(model.ErrorResponse{
+		Message: "ERROR",
+		Error:   err.Error(),
+	})
 }

@@ -2,6 +2,11 @@ package model
 
 import "time"
 
+type ErrorResponse struct {
+	Message string `json:"message"`
+	Error   string `json:"error"`
+}
+
 type Session struct {
 	ID        string    `json:"id" orm:"id"`
 	Title     string    `json:"title" orm:"title"`

@@ -10,11 +10,12 @@
     "generate:api": "openapi-typescript ../../openapi/openapi.yaml --output src/api/generated.ts"
   },
   "dependencies": {
+    "highlight.js": "^11.10.0",
+    "lucide-react": "^1.11.0",
+    "marked": "^14.0.0",
     "openapi-fetch": "^0.14.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "marked": "^14.0.0",
-    "highlight.js": "^11.10.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",

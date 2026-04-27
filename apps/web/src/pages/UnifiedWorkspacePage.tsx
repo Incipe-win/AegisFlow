@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { marked } from "marked";
 import hljs from "highlight.js";
 import "highlight.js/styles/github-dark.css";
+import { BookOpen, Wrench, Activity, MessageSquare } from "lucide-react";
 
 import { WorkspaceShell } from "../components/WorkspaceShell";
 import { ChatMessage } from "../components/ChatMessage";
@@ -14,7 +15,6 @@ import { OpsPanel } from "../components/OpsPanel";
 import { useChatSession } from "../hooks/useChatSession";
 import { parseCommand, executeCommand } from "../utils/chatCommands";
 
-// 配置marked使用highlight.js进行代码高亮
 marked.setOptions({
   breaks: true,
   gfm: true,
@@ -38,7 +38,6 @@ const panelMeta: Record<Exclude<PanelType, null>, { title: string; description: 
 };
 
 export function UnifiedWorkspacePage() {
-  // 聊天会话状态
   const {
     messages,
     currentSessionId,
@@ -52,7 +51,6 @@ export function UnifiedWorkspacePage() {
     addMessage,
   } = useChatSession();
 
-  // 转换会话格式为ChatHistory组件期望的格式
   const historySessions = useMemo(() => {
     return sessions.map(session => ({
       id: session.id,
@@ -68,47 +66,33 @@ export function UnifiedWorkspacePage() {
     [currentSessionId, historySessions],
   );
 
-  // 侧边面板状态
   const [activePanel, setActivePanel] = useState<PanelType>(null);
-
-  // 消息容器引用，用于自动滚动
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 自动滚动到最新消息
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  // 处理发送消息
   const handleSendMessage = async (content: string, files?: File[]) => {
     if (!content.trim() && (!files || files.length === 0)) return;
-
-    // 如果有文件，先上传
     if (files && files.length > 0) {
       for (const file of files) {
         await uploadFile(file);
       }
     }
-
-    // 发送文本消息
     if (content.trim()) {
       await sendMessage(content);
     }
   };
 
-  // 处理命令输入
   const handleCommand = async (command: string) => {
     const parsed = parseCommand(command);
-
     if (!parsed) {
-      // 不是命令，作为普通消息发送
       await handleSendMessage(command);
       return;
     }
-
-    // 创建命令上下文
     const context = {
       sessionId: currentSessionId,
       messages,
@@ -127,21 +111,16 @@ export function UnifiedWorkspacePage() {
       },
     };
 
-    // 执行命令
     const result = await executeCommand(parsed.command, parsed.args, context);
 
-    // 处理命令结果
     if (result.action === "open_panel") {
       setActivePanel(result.data.panel);
     } else if (result.action === "send_message") {
       await handleSendMessage(result.data.content);
     } else if (result.action === "new_session") {
       await startNewSession(result.data.title);
-    } else if (result.action === "upload_files") {
-      // 这里可以处理文件上传
     }
 
-    // 显示命令结果消息（如果有）
     if (result.message) {
       const messageId = `command-${Date.now()}`;
       const systemMessage = {
@@ -150,12 +129,10 @@ export function UnifiedWorkspacePage() {
         content: result.success ? `✓ ${result.message}` : `✗ ${result.message}`,
         timestamp: new Date(),
       };
-
       addMessage(systemMessage);
     }
   };
 
-  // 切换侧边面板
   const togglePanel = (panel: PanelType) => {
     setActivePanel(activePanel === panel ? null : panel);
   };
@@ -185,11 +162,7 @@ export function UnifiedWorkspacePage() {
               onClick={() => togglePanel("knowledge")}
               title="知识库管理"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-                <path d="M9 10h6" />
-                <path d="M9 14h6" />
-              </svg>
+              <BookOpen size={20} />
               知识库
             </button>
 
@@ -198,9 +171,7 @@ export function UnifiedWorkspacePage() {
               onClick={() => togglePanel("tools")}
               title="MCP工具目录"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-              </svg>
+              <Wrench size={20} />
               工具
             </button>
 
@@ -209,9 +180,7 @@ export function UnifiedWorkspacePage() {
               onClick={() => togglePanel("ops")}
               title="运维监控"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-              </svg>
+              <Activity size={20} />
               运维
             </button>
           </div>
@@ -243,6 +212,7 @@ export function UnifiedWorkspacePage() {
               className="ghost-button workspace-overview-button"
               onClick={() => void handleCreateSession()}
             >
+              <MessageSquare size={16} />
               新建对话
             </button>
 
@@ -269,9 +239,7 @@ export function UnifiedWorkspacePage() {
               {messages.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-state-icon">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
+                    <MessageSquare size={48} />
                   </div>
                   <h3>让每一次排障都带着上下文开始</h3>
                   <p>
@@ -343,7 +311,7 @@ export function UnifiedWorkspacePage() {
                   </article>
                   <article>
                     <strong>MCP 工具</strong>
-                    <span>查看有哪些实时工具能参与诊断，减少“猜答案”的情况。</span>
+                    <span>查看有哪些实时工具能参与诊断，减少"猜答案"的情况。</span>
                   </article>
                   <article>
                     <strong>运维流程</strong>

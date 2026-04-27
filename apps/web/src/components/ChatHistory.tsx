@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Plus, Search, MessageSquare, Trash2 } from "lucide-react";
 
 export interface ChatSession {
   id: string;
@@ -29,13 +30,11 @@ export function ChatHistory({
     void onCreateNewSession();
   };
 
-  // 过滤会话
   const filteredSessions = sessions.filter((session) =>
     session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     session.lastMessage?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // 格式化时间显示
   const formatTime = (date: Date) => {
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -50,7 +49,6 @@ export function ChatHistory({
     return date.toLocaleDateString("zh-CN");
   };
 
-  // 截断文本
   const truncateText = (text: string, maxLength: number) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + "...";
@@ -66,20 +64,13 @@ export function ChatHistory({
           onClick={handleCreateSession}
           title="开始新对话"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
+          <Plus size={16} />
           新对话
         </button>
       </div>
 
-      {/* 搜索框 */}
       <div className="search-box">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
+        <Search size={16} />
         <input
           type="text"
           placeholder="搜索对话..."
@@ -98,13 +89,10 @@ export function ChatHistory({
         )}
       </div>
 
-      {/* 会话列表 */}
       <div className="session-list">
         {filteredSessions.length === 0 ? (
           <div className="empty-sessions">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
+            <MessageSquare size={40} />
             <p>暂无对话记录</p>
             <button type="button" onClick={handleCreateSession}>
               开始第一个对话
@@ -122,9 +110,7 @@ export function ChatHistory({
               aria-pressed={session.id === currentSessionId}
             >
               <div className="session-avatar">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
+                <MessageSquare size={16} />
               </div>
 
               <div className="session-content">
@@ -143,10 +129,7 @@ export function ChatHistory({
                         }}
                         title="删除对话"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
+                        <Trash2 size={14} />
                       </button>
                     )}
                   </div>
@@ -167,7 +150,6 @@ export function ChatHistory({
         )}
       </div>
 
-      {/* 会话统计 */}
       {sessions.length > 0 && (
         <div className="session-stats">
           <div className="stat-item">

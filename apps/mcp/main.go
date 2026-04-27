@@ -112,63 +112,17 @@ func loadConfig() config {
 }
 
 func prometheusQuery(ctx context.Context, req mcp.CallToolRequest, args queryArgs) (*mcp.CallToolResult, error) {
-	service := fallback(args.Service, "unknown-service")
-	query := fallback(args.Query, "up")
-
-	text := fmt.Sprintf(
-		"service=%s query=%s result=cpu_avg=91%%, error_rate=4.8%%, p95=1.2s, traffic_change=+22%%",
-		service,
-		query,
-	)
-	return mcp.NewToolResultText(text), nil
+	return mcp.NewToolResultText(fmt.Sprintf("prometheus.query is not yet implemented (service=%s query=%s)", args.Service, args.Query)), nil
 }
 
 func logSearch(ctx context.Context, req mcp.CallToolRequest, args logArgs) (*mcp.CallToolResult, error) {
-	service := fallback(args.Service, "unknown-service")
-	keyword := fallback(args.Keyword, "error")
-
-	text := fmt.Sprintf(
-		"service=%s keyword=%s hits=[timeout to inventory-service, slow query warning, retry burst observed]",
-		service,
-		keyword,
-	)
-	return mcp.NewToolResultText(text), nil
+	return mcp.NewToolResultText(fmt.Sprintf("logs.search is not yet implemented (service=%s keyword=%s)", args.Service, args.Keyword)), nil
 }
 
 func mysqlQuery(ctx context.Context, req mcp.CallToolRequest, args mysqlArgs) (*mcp.CallToolResult, error) {
-	service := fallback(args.Service, "unknown-service")
-	statement := fallback(args.Statement, "show slow query summary")
-
-	text := fmt.Sprintf(
-		"service=%s statement=%s result=top1 SELECT payment_id FROM orders ... duration=1280ms rows=12034 count=16",
-		service,
-		statement,
-	)
-	return mcp.NewToolResultText(text), nil
+	return mcp.NewToolResultText(fmt.Sprintf("mysql.query is not yet implemented (service=%s)", args.Service)), nil
 }
 
 func runbookSearch(ctx context.Context, req mcp.CallToolRequest, args runbookArgs) (*mcp.CallToolResult, error) {
-	service := strings.ToLower(fallback(args.Service, "general"))
-	query := strings.ToLower(fallback(args.Query, "incident"))
-
-	corpus := map[string]string{
-		"payment-service": "payment-service runbook: first inspect CPU, timeout logs, retry spikes, then check slow SQL and recent release diffs.",
-		"general":         "general oncall runbook: confirm impact, inspect metrics, retrieve historical incidents, then decide mitigation and escalation.",
-	}
-
-	best := corpus["general"]
-	for key, value := range corpus {
-		if strings.Contains(service, key) || strings.Contains(query, key) {
-			best = value
-			break
-		}
-	}
-	return mcp.NewToolResultText(best), nil
-}
-
-func fallback(value string, fallbackValue string) string {
-	if strings.TrimSpace(value) == "" {
-		return fallbackValue
-	}
-	return value
+	return mcp.NewToolResultText(fmt.Sprintf("runbook.search is not yet implemented (service=%s query=%s)", args.Service, args.Query)), nil
 }

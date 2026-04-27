@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { BookOpen, MessageSquare, Activity, Wrench } from "lucide-react";
 
 type TabKey = "knowledge" | "chat" | "ops" | "tools";
 
@@ -8,11 +9,11 @@ type ShellProps = {
   children: ReactNode;
 };
 
-const tabs: Array<{ key: TabKey; label: string; hint: string }> = [
-  { key: "knowledge", label: "知识库", hint: "上传与索引内部文档" },
-  { key: "chat", label: "Chat Run", hint: "ReAct 运行与事件流" },
-  { key: "ops", label: "Ops Run", hint: "Supervisor 与 PlanExecute" },
-  { key: "tools", label: "MCP Tools", hint: "工具目录与协议接入" },
+const tabs: Array<{ key: TabKey; label: string; hint: string; icon: ReactNode }> = [
+  { key: "knowledge", label: "知识库", hint: "上传与索引内部文档", icon: <BookOpen size={20} /> },
+  { key: "chat", label: "Chat Run", hint: "ReAct 运行与事件流", icon: <MessageSquare size={20} /> },
+  { key: "ops", label: "Ops Run", hint: "Supervisor 与 PlanExecute", icon: <Activity size={20} /> },
+  { key: "tools", label: "MCP Tools", hint: "工具目录与协议接入", icon: <Wrench size={20} /> },
 ];
 
 export function Shell({ activeTab, onTabChange, children }: ShellProps) {
@@ -34,7 +35,10 @@ export function Shell({ activeTab, onTabChange, children }: ShellProps) {
               className={tab.key === activeTab ? "nav-item active" : "nav-item"}
               onClick={() => onTabChange(tab.key)}
             >
-              <span>{tab.label}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                {tab.icon}
+                {tab.label}
+              </span>
               <small>{tab.hint}</small>
             </button>
           ))}

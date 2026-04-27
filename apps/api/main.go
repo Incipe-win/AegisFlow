@@ -25,9 +25,6 @@ func main() {
 	uploadDir := envOr("AEGISFLOW_UPLOAD_DIR", "resource/uploads")
 	seedDir := envOr("AEGISFLOW_SEED_DIR", "resource/seed")
 
-	if err := store.Bootstrap(ctx, repo, seedDir, uploadDir); err != nil {
-		panic(err)
-	}
 	if err := store.EnsurePlatformSchema(ctx, repo, seedDir); err != nil {
 		panic(err)
 	}

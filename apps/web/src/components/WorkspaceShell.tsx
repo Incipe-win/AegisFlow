@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Activity } from "lucide-react";
 
 interface WorkspaceShellProps {
   sidebar: ReactNode;
@@ -26,7 +27,7 @@ export function WorkspaceShell({ sidebar, children }: WorkspaceShellProps) {
             <span className="status-dot connected"></span>
             <span>已连接</span>
           </div>
-          <div className="version-info">v1.0.0</div>
+          <div className="version-info">v2.0.0</div>
         </div>
       </aside>
 

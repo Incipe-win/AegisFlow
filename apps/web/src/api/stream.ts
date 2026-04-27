@@ -1,4 +1,4 @@
-import { apiBaseUrl, type ChatRunRequest } from "./client";
+import { apiBaseUrl, type ChatRunRequest, type OpsRunRequest } from "./client";
 
 export type StreamFrame = {
   event: string;
@@ -56,6 +56,47 @@ function extractStreamError(data: string) {
     // Ignore JSON parsing failures and fall back to raw text.
   }
   return data.trim() || "流式聊天失败";
+}
+
+export async function streamOpsRun(
+  body: OpsRunRequest,
+  onFrame: (frame: StreamFrame) => void,
+) {
+  const response = await fetch(`${apiBaseUrl}/api/v2/runs/ops/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok || !response.body) {
+    throw new Error("流式运维诊断失败");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+
+    for (const frame of frames) {
+      const parsed = parseFrame(frame);
+      if (parsed) {
+        if (parsed.event === "error") {
+          throw new Error(extractStreamError(parsed.data));
+        }
+        onFrame(parsed);
+      }
+    }
+  }
 }
 
 function parseFrame(frame: string): StreamFrame | null {

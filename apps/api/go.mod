@@ -5,15 +5,14 @@ go 1.25.0
 require (
 	github.com/cloudwego/eino v0.8.5
 	github.com/cloudwego/eino-ext/components/embedding/openai v0.0.0-20260323112355-f061db7e8419
-	github.com/cloudwego/eino-ext/components/indexer/milvus v0.0.0-20260323112355-f061db7e8419
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.10
-	github.com/cloudwego/eino-ext/components/retriever/milvus v0.0.0-20260323112355-f061db7e8419
 	github.com/cloudwego/eino-ext/components/tool/mcp v0.0.8
 	github.com/gogf/gf/contrib/drivers/mysql/v2 v2.10.0
 	github.com/gogf/gf/v2 v2.10.0
 	github.com/google/uuid v1.6.0
 	github.com/mark3labs/mcp-go v0.45.0
 	github.com/milvus-io/milvus-sdk-go/v2 v2.4.2
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -92,10 +91,9 @@ require (
 	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463 // indirect
+	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 	google.golang.org/grpc v1.73.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 replace google.golang.org/genproto/googleapis/rpc => google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1
