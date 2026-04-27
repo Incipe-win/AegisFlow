@@ -1,0 +1,137 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: aegisflow-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: aegisflow
+      MYSQL_USER: aegisflow
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-aegisflow}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - aegisflow
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: aegisflow-etcd
+    restart: unless-stopped
+    command:
+      - etcd
+      - --advertise-client-urls=http://etcd:2379
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --data-dir=/etcd
+    volumes:
+      - etcd_data:/etcd
+    networks:
+      - aegisflow
+
+  minio:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    container_name: aegisflow-minio
+    restart: unless-stopped
+    command: minio server /minio_data --console-address ":9001"
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - minio_data:/minio_data
+    networks:
+      - aegisflow
+
+  milvus:
+    image: milvusdb/milvus:v2.4.23
+    container_name: aegisflow-milvus
+    restart: unless-stopped
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    volumes:
+      - milvus_data:/var/lib/milvus
+    depends_on:
+      - etcd
+      - minio
+    networks:
+      - aegisflow
+
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+      args:
+        GOPROXY: ${GOPROXY:-}
+        GOSUMDB: ${GOSUMDB:-}
+    container_name: aegisflow-mcp
+    restart: unless-stopped
+    environment:
+      AEGISFLOW_MCP_ADDR: ":8090"
+      AEGISFLOW_MCP_BASE_URL: "http://mcp:8090"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - aegisflow
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      args:
+        GOPROXY: ${GOPROXY:-}
+        GOSUMDB: ${GOSUMDB:-}
+    container_name: aegisflow-api
+    restart: unless-stopped
+    environment:
+      GF_GCFG_FILE: config.compose.yaml
+      AEGISFLOW_MCP_SSE_URL: http://mcp:8090/sse
+      AEGISFLOW_MILVUS_ADDR: milvus:19530
+      AEGISFLOW_CORS_ORIGIN: ${AEGISFLOW_CORS_ORIGIN:-}
+      AEGISFLOW_OPENAI_BASE_URL: ${AEGISFLOW_OPENAI_BASE_URL:-}
+      AEGISFLOW_OPENAI_API_KEY: ${AEGISFLOW_OPENAI_API_KEY:-}
+      AEGISFLOW_CHAT_MODEL: ${AEGISFLOW_CHAT_MODEL:-}
+      AEGISFLOW_EMBEDDING_MODEL: ${AEGISFLOW_EMBEDDING_MODEL:-}
+    volumes:
+      - uploads_data:/app/resource/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      milvus:
+        condition: service_started
+      mcp:
+        condition: service_started
+    networks:
+      - aegisflow
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    container_name: aegisflow-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "2053:2053"
+    depends_on:
+      - api
+    networks:
+      - aegisflow
+
+volumes:
+  mysql_data:
+  etcd_data:
+  minio_data:
+  milvus_data:
+  uploads_data:
+
+networks:
+  aegisflow:
+    driver: bridge

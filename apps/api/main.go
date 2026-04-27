@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	_ "github.com/gogf/gf/contrib/drivers/mysql/v2"
 	"github.com/gogf/gf/v2/frame/g"
@@ -32,7 +33,17 @@ func main() {
 	server := g.Server()
 	server.SetPort(envOrInt("AEGISFLOW_API_PORT", 6872))
 	server.BindMiddlewareDefault(func(r *ghttp.Request) {
-		r.Response.CORSDefault()
+		corsOrigin := strings.TrimSpace(os.Getenv("AEGISFLOW_CORS_ORIGIN"))
+		if corsOrigin != "" {
+			r.Response.CORS(ghttp.CORSOptions{
+				AllowOrigin:      corsOrigin,
+				AllowMethods:     "GET,POST,PUT,DELETE,PATCH,OPTIONS",
+				AllowCredentials: "true",
+				MaxAge:           3600,
+			})
+		} else {
+			r.Response.CORSDefault()
+		}
 		r.Response.Header().Set("Access-Control-Expose-Headers", "Content-Type")
 		r.Middleware.Next()
 	})

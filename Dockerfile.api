@@ -1,0 +1,24 @@
+FROM golang:1.25-alpine AS builder
+
+ARG GOPROXY
+ARG GOSUMDB
+ENV GOPROXY=${GOPROXY:-https://proxy.golang.org,direct}
+ENV GOSUMDB=${GOSUMDB:-sum.golang.org}
+
+WORKDIR /src
+COPY apps/api/go.mod apps/api/go.sum ./
+RUN go mod download
+COPY apps/api/ ./
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /aegisflow-api .
+
+FROM alpine:3.21
+RUN apk add --no-cache ca-certificates tzdata
+WORKDIR /app
+COPY --from=builder /aegisflow-api .
+COPY apps/api/manifest/config/ ./manifest/config/
+COPY apps/api/resource/ ./resource/
+
+ENV GF_GCFG_FILE=config.compose.yaml
+
+EXPOSE 6872
+ENTRYPOINT ["./aegisflow-api"]

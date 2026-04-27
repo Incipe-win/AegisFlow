@@ -13,6 +13,11 @@
     "dev:api": "bash scripts/run-go-hot.sh apps/api apps/api/.air.toml",
     "dev:host": "bash scripts/dev.sh",
     "dev": "docker compose up --remove-orphans",
-    "dev:down": "docker compose down"
+    "dev:down": "docker compose down",
+    "prod:build": "docker compose -f docker-compose.prod.yml build",
+    "prod:up": "docker compose -f docker-compose.prod.yml up -d",
+    "prod:down": "docker compose -f docker-compose.prod.yml down",
+    "prod:logs": "docker compose -f docker-compose.prod.yml logs -f",
+    "deploy": "bash scripts/deploy.sh"
   }
 }

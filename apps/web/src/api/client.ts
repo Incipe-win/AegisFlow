@@ -16,16 +16,20 @@ export type CreateKnowledgeIndexJobRequest =
   components["schemas"]["CreateKnowledgeIndexJobRequest"];
 
 function getDefaultApiBaseUrl() {
-  if (typeof window === "undefined") {
-    return "http://localhost:6872";
-  }
-  const protocol = window.location.protocol || "http:";
-  const hostname = window.location.hostname || "localhost";
-  return `${protocol}//${hostname}:6872`;
+  const envBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (envBaseUrl) return envBaseUrl;
+
+  if (typeof window === "undefined") return "";
+
+  const port = window.location.port;
+  // In dev (Vite :5173), proxy /api to backend. In prod, nginx proxies same-origin.
+  if (!port || port === "80" || port === "443" || port === "5173") return "";
+
+  // Keep port 6872 only for when accessing API directly (legacy / direct-connect)
+  return `${window.location.protocol}//${window.location.hostname}:6872`;
 }
 
-export const apiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL?.trim() || getDefaultApiBaseUrl();
+export const apiBaseUrl = getDefaultApiBaseUrl();
 
 export const apiClient = createClient<paths>({
   baseUrl: apiBaseUrl,
